@@ -20,6 +20,39 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## HydraIQ - Deploy Quickstart
+
+1. Supabase
+- Create a project at https://app.supabase.com
+- In SQL Editor run, in order:
+  - `supabase/schema.sql`
+  - `supabase/rls_policies.sql`
+- Auth → Settings:
+  - Site URL: your deployed URL (e.g., https://hydraiq.vercel.app)
+  - Redirect URLs: include your deployed URL and http://localhost:3000
+  - Enable Email/Password
+- Copy Project URL and anon public key.
+
+2. Env vars
+- Create `.env.local` for local dev (and set the same on Vercel):
+```
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+# Optional (for insights generation)
+OPENAI_API_KEY=your_openai_key
+```
+
+3. Run locally
+```
+npm run dev
+```
+
+4. Deploy on Vercel
+- Push this repo to GitHub
+- Import in https://vercel.com → set the env vars above → Deploy
+
+That’s it. Users can sign up at `/auth/signup`, complete `/onboarding`, log drinks/supplements at `/log`, view Today at `/`, Workouts at `/workouts`, and Insights at `/insights`.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:
