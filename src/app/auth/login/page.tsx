@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -47,7 +47,7 @@ export default function LoginPage() {
 						value={password}
 						onChange={(e) => setPassword(e.target.value)}
 						className="w-full rounded-xl border border-zinc-200 bg-white p-3 outline-none ring-blue-500 focus:ring-2 dark:border-zinc-800 dark:bg-zinc-900"
-						placeholder="••••••••"
+						placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
 					/>
 				</div>
 				{error ? <p className="text-sm text-red-600">{error}</p> : null}
@@ -69,5 +69,6 @@ export default function LoginPage() {
 		</div>
 	);
 }
+
 
 

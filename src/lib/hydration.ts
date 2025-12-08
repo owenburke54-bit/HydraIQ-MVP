@@ -1,4 +1,4 @@
-export const BASE_ML_PER_KG = 35;
+﻿export const BASE_ML_PER_KG = 35;
 export const WORKOUT_ML_PER_MIN = 8;
 export const HEAT_MULTIPLIER = 1.1;
 
@@ -12,7 +12,7 @@ export function calculateHydrationTarget(inputs: DailyHydrationInputs) {
 	const baseNeed = inputs.weightKg * BASE_ML_PER_KG;
 
 	const workoutAdjustment = inputs.workouts.reduce((total, w) => {
-		const intensityFactor = 0.5 + w.intensity / 10; // 0.6–1.5x
+		const intensityFactor = 0.5 + w.intensity / 10; // 0.6â€“1.5x
 		return total + w.durationMin * WORKOUT_ML_PER_MIN * intensityFactor;
 	}, 0);
 
@@ -75,5 +75,6 @@ export function calculateHydrationScore(inputs: ScoreInputs): number {
 
 	return Math.max(0, Math.min(100, Math.round(score)));
 }
+
 
 

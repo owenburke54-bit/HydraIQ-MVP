@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import Button from "../../components/ui/Button";
@@ -34,7 +34,7 @@ export default function WorkoutsPage() {
 					className="flex w-full items-center justify-between p-4 text-left text-sm font-medium"
 				>
 					<span>Add workout</span>
-					<span className="text-zinc-500">{open ? "−" : "+"}</span>
+					<span className="text-zinc-500">{open ? "âˆ’" : "+"}</span>
 				</button>
 				{open && (
 					<div className="border-t border-zinc-200 p-4 dark:border-zinc-800">
@@ -122,5 +122,6 @@ export default function WorkoutsPage() {
 		</div>
 	);
 }
+
 
 

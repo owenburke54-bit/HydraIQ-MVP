@@ -1,4 +1,4 @@
-import { getServerSupabase } from "../../lib/supabaseServer";
+﻿import { getServerSupabase } from "../../lib/supabaseServer";
 import RegenerateInsightsButton from "../../components/RegenerateInsightsButton";
 import { Card } from "../../components/ui/Card";
 import { headers } from "next/headers";
@@ -76,5 +76,6 @@ export default async function InsightsPage() {
 		</div>
 	);
 }
+
 
 

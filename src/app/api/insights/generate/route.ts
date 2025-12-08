@@ -1,4 +1,4 @@
-import { bad, getRouteClient, ok, requireUserId } from "../../_helpers";
+﻿import { bad, getRouteClient, ok, requireUserId } from "../../_helpers";
 import { buildHydrationInsightsPrompt } from "../../../../lib/prompts/hydrationInsights";
 import OpenAI from "openai";
 
@@ -115,5 +115,6 @@ export async function POST(request: Request) {
 		return bad("Unexpected error", 500);
 	}
 }
+
 
 

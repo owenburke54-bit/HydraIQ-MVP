@@ -1,4 +1,4 @@
-import { bad, getDaySummary, getOrCreateHydrationDay, ok, requireUserId, recalcDay, getRouteClient, getProfileWeightKg } from "../_helpers";
+﻿import { bad, getDaySummary, getOrCreateHydrationDay, ok, requireUserId, recalcDay, getRouteClient, getProfileWeightKg } from "../_helpers";
 import { calculateHydrationTarget } from "../../../lib/hydration";
 
 export async function POST(request: Request) {
@@ -66,5 +66,6 @@ export async function POST(request: Request) {
 		return bad("Unexpected error", 500);
 	}
 }
+
 
 

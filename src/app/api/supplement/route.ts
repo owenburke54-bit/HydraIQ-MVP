@@ -1,4 +1,4 @@
-import { bad, getDaySummary, getOrCreateHydrationDay, getRouteClient, ok, requireUserId } from "../_helpers";
+﻿import { bad, getDaySummary, getOrCreateHydrationDay, getRouteClient, ok, requireUserId } from "../_helpers";
 
 export async function POST(request: Request) {
   try {
@@ -29,5 +29,6 @@ export async function POST(request: Request) {
     return bad("Unexpected error", 500);
   }
 }
+
 
 

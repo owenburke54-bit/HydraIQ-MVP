@@ -1,4 +1,4 @@
-import { bad, ok, requireUserId } from "../_helpers";
+﻿import { bad, ok, requireUserId } from "../_helpers";
 
 export async function GET(request: Request) {
 	try {
@@ -19,5 +19,6 @@ export async function GET(request: Request) {
 		return bad("Unexpected error", 500);
 	}
 }
+
 
 

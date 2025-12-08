@@ -1,4 +1,4 @@
-import { bad, getDaySummary, ok, requireUserId, recalcDay, getRouteClient } from "../_helpers";
+﻿import { bad, getDaySummary, ok, requireUserId, recalcDay, getRouteClient } from "../_helpers";
 
 export async function GET(request: Request) {
 	try {
@@ -23,5 +23,6 @@ export async function GET(request: Request) {
 		return bad("Unexpected error", 500);
 	}
 }
+
 
 

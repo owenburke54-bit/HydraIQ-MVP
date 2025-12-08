@@ -1,4 +1,4 @@
-type Props = {
+﻿type Props = {
 	actualMl: number;
 	targetMl: number;
 };
@@ -22,5 +22,6 @@ export default function HydrationProgressBar({ actualMl, targetMl }: Props) {
 		</section>
 	);
 }
+
 
 

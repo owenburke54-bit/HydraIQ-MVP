@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 
@@ -38,7 +38,7 @@ export default function OnboardingPage() {
 		<div className="p-4">
 			<h1 className="text-xl font-semibold">Welcome to HydraIQ</h1>
 			<p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-				Let’s set up your profile to personalize your hydration targets.
+				Letâ€™s set up your profile to personalize your hydration targets.
 			</p>
 			<div className="mt-4 space-y-4">
 				<div>
@@ -159,5 +159,6 @@ export default function OnboardingPage() {
 		</div>
 	);
 }
+
 
 

@@ -1,4 +1,4 @@
-import { bad, getRouteClient, ok, requireUserId } from "../_helpers";
+﻿import { bad, getRouteClient, ok, requireUserId } from "../_helpers";
 
 export async function GET() {
   try {
@@ -62,5 +62,6 @@ export async function POST(request: Request) {
     return bad("Unexpected error", 500);
   }
 }
+
 
 

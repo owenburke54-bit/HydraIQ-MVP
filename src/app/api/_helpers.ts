@@ -1,4 +1,4 @@
-import { cookies } from "next/headers";
+﻿import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
 import { calculateHydrationScore, calculateHydrationTarget } from "../../lib/hydration";
@@ -156,5 +156,6 @@ export function ok(data: unknown, init?: number | ResponseInit) {
 export function bad(message: string, status = 400) {
 	return NextResponse.json({ error: message }, { status });
 }
+
 
 

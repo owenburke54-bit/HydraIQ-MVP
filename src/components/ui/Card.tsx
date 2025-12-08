@@ -1,4 +1,4 @@
-import { HTMLAttributes, PropsWithChildren } from "react";
+﻿import { HTMLAttributes, PropsWithChildren } from "react";
 import { twMerge } from "tailwind-merge";
 
 export function Card({
@@ -59,5 +59,6 @@ export function CardFooter({
 		<div className={twMerge("px-4 pb-4 pt-2", className)} {...props} />
 	);
 }
+
 
 
