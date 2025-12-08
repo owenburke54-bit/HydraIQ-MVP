@@ -56,7 +56,10 @@ export async function POST(request: Request) {
       },
       { onConflict: "id" }
     );
-    if (error) return bad("Failed to save profile", 500);
+    if (error) {
+      console.error("profiles upsert error:", error);
+      return bad(error.message ?? "Failed to save profile", 500);
+    }
 
     // Ensure today's hydration target is ready immediately
     const today = new Date().toISOString().slice(0, 10);

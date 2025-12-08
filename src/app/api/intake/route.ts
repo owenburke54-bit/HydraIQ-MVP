@@ -25,7 +25,10 @@ export async function POST(request: Request) {
 				volume_ml: volumeMl,
 				type,
 			});
-		if (insertErr) return bad("Failed to insert intake", 500);
+		if (insertErr) {
+			console.error("intake insert error:", insertErr);
+			return bad(insertErr.message ?? "Failed to insert intake", 500);
+		}
 
 		// Recalculate day
 		await recalcDay(userId, date);
