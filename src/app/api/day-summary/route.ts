@@ -9,7 +9,7 @@ export async function GET(request: Request) {
 		await recalcDay(userId, date);
 		const summary = await getDaySummary(userId, date);
 		// Include supplements for the day
-		const supabase = getRouteClient();
+		const supabase = await getRouteClient();
 		const { data: supplements } = await supabase
 			.from("supplement_events")
 			.select("id, timestamp, type")
