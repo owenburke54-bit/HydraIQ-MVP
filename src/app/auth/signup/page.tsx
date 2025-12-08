@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { supabase } from "../../../lib/supabaseClient";
+import { getSupabaseBrowserClient } from "../../../lib/supabaseClient";
 import { useRouter } from "next/navigation";
 
 export default function SignupPage() {
@@ -17,7 +17,14 @@ export default function SignupPage() {
 		setLoading(true);
 		setError(null);
 		setMessage(null);
-		const { error } = await supabase.auth.signUp({ email, password });
+		let error: { message: string } | null = null;
+		try {
+			const supabase = getSupabaseBrowserClient();
+			const res = await supabase.auth.signUp({ email, password });
+			error = res.error;
+		} catch (e: any) {
+			error = { message: e?.message || "Supabase not configured" };
+		}
 		setLoading(false);
 		if (error) {
 			setError(error.message);
