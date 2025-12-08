@@ -1,5 +1,5 @@
 ﻿// build: bump 1
-import { bad, getRouteClient, ok, requireUserId } from "../_helpers";
+import { bad, getRouteClient, ok, requireUserId, getOrCreateHydrationDay, recalcDay, getDaySummary } from "../_helpers";
 
 export async function GET() {
   try {
@@ -57,7 +57,14 @@ export async function POST(request: Request) {
       { onConflict: "id" }
     );
     if (error) return bad("Failed to save profile", 500);
-    return ok({ success: true });
+
+    // Ensure today's hydration target is ready immediately
+    const today = new Date().toISOString().slice(0, 10);
+    await getOrCreateHydrationDay(userId, today);
+    await recalcDay(userId, today);
+    const summary = await getDaySummary(userId, today);
+
+    return ok({ success: true, summary });
   } catch (e: any) {
     if (e instanceof Response) return e;
     return bad("Unexpected error", 500);

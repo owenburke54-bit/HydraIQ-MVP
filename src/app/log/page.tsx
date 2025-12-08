@@ -132,7 +132,7 @@ export default function LogPage() {
 							});
 							if (!intakeRes.ok) {
 								if (intakeRes.status === 401) {
-									setError("Please log in first (Auth required)");
+									window.location.href = "/auth/login?redirect=/log";
 									return;
 								}
 								const j = await intakeRes.json().catch(() => ({} as any));
