@@ -10,10 +10,17 @@ export async function middleware(req: NextRequest) {
 	const isAPI = pathname.startsWith("/api");
 
 	const res = NextResponse.next();
-	const supabase = createServerClient(
-		process.env.NEXT_PUBLIC_SUPABASE_URL!,
-		process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-		{
+
+	// If env vars are missing in Edge, skip auth middleware to avoid 500
+	const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+	const supabaseAnon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+	if (!supabaseUrl || !supabaseAnon) {
+		return res;
+	}
+
+	let user: { id: string } | null = null;
+	try {
+		const supabase = createServerClient(supabaseUrl, supabaseAnon, {
 			cookies: {
 				get(name) {
 					return req.cookies.get(name)?.value;
@@ -25,12 +32,14 @@ export async function middleware(req: NextRequest) {
 					res.cookies.set(name, "", options);
 				},
 			},
-		}
-	);
+		});
 
-	const {
-		data: { user },
-	} = await supabase.auth.getUser();
+		const { data } = await supabase.auth.getUser();
+		user = data.user as any;
+	} catch {
+		// On any error in middleware, do not block the request
+		return res;
+	}
 
 	// If on auth pages and already logged in, go home
 	if (isAuth && user) {
