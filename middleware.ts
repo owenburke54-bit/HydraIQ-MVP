@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
 const AUTH_PREFIX = "/auth";
-const ONBOARDING_PATH = "/onboarding";
+const ONBOARDING_PATH = "/profile";
 
 export async function middleware(req: NextRequest) {
 	const { pathname } = req.nextUrl;
