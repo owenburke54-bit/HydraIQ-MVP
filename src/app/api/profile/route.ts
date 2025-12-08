@@ -4,7 +4,7 @@ import { bad, getRouteClient, ok, requireUserId } from "../_helpers";
 export async function GET() {
   try {
     const userId = await requireUserId();
-    const supabase = getRouteClient();
+    const supabase = await getRouteClient();
     const { data } = await supabase
       .from("profiles")
       .select("name, sex, dob, height_cm, weight_kg, units")
@@ -44,7 +44,7 @@ export async function POST(request: Request) {
       weight_kg = weightLbs ? Math.round(weightLbs * 0.453592) : null;
     }
 
-    const supabase = getRouteClient();
+    const supabase = await getRouteClient();
     const { error } = await supabase.from("profiles").upsert(
       {
         id: userId,

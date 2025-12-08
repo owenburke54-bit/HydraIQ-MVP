@@ -149,6 +149,9 @@ export async function getDaySummary(userId: string, date: string) {
 }
 
 export function ok(data: unknown, init?: number | ResponseInit) {
+	if (typeof init === "number") {
+		return NextResponse.json(data, { status: init });
+	}
 	return NextResponse.json(data, init);
 }
 
