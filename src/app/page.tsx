@@ -55,12 +55,12 @@ export default async function Home() {
 			<Card className="mb-4 border-blue-100 bg-blue-50 p-4 text-blue-900 shadow-sm dark:border-blue-900/40 dark:bg-blue-950 dark:text-blue-200">
 				<p className="text-sm font-medium">Next recommendation</p>
 				<p className="mt-1 text-sm">
-					{actual < target ? "Drink 300ml in the next 2 hours" : "Nice workâ€”you're on target today"}
+					{actual < target ? "Drink 300ml in the next 2 hours" : "Nice work - you're on target today"}
 				</p>
 			</Card>
 
 			<section className="mb-20">
-				<h2 className="mb-2 text-lg font-semibold">Todayâ€™s intake</h2>
+				<h2 className="mb-2 text-lg font-semibold">Today's intake</h2>
 				{intakes.length === 0 ? (
 					<div className="rounded-2xl border border-dashed border-zinc-300 p-6 text-center text-sm text-zinc-600 dark:border-zinc-800 dark:text-zinc-400">
 						No drinks logged yet.
