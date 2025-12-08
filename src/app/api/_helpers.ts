@@ -3,8 +3,8 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
 import { calculateHydrationScore, calculateHydrationTarget } from "../../lib/hydration";
 
-export function getRouteClient() {
-	const cookieStore = cookies();
+export async function getRouteClient() {
+	const cookieStore = await cookies();
 	return createServerClient(
 		process.env.NEXT_PUBLIC_SUPABASE_URL!,
 		process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -13,7 +13,6 @@ export function getRouteClient() {
 				get(name) {
 					return cookieStore.get(name)?.value;
 				},
-				// Route handlers typically don't need to set cookies here for reads
 				set() {},
 				remove() {},
 			},
@@ -22,7 +21,7 @@ export function getRouteClient() {
 }
 
 export async function requireUserId() {
-	const supabase = getRouteClient();
+	const supabase = await getRouteClient();
 	const {
 		data: { user },
 		error,
@@ -34,7 +33,7 @@ export async function requireUserId() {
 }
 
 export async function getProfileWeightKg(userId: string): Promise<{ weightKg: number; units: string | null }> {
-	const supabase = getRouteClient();
+	const supabase = await getRouteClient();
 	const { data, error } = await supabase
 		.from("profiles")
 		.select("weight_kg, units")
@@ -49,7 +48,7 @@ export async function getProfileWeightKg(userId: string): Promise<{ weightKg: nu
 }
 
 export async function getOrCreateHydrationDay(userId: string, date: string) {
-	const supabase = getRouteClient();
+	const supabase = await getRouteClient();
 	// Check existing
 	const existing = await supabase
 		.from("hydration_days")
@@ -91,7 +90,7 @@ export async function getOrCreateHydrationDay(userId: string, date: string) {
 }
 
 export async function recalcDay(userId: string, date: string) {
-	const supabase = getRouteClient();
+	const supabase = await getRouteClient();
 	const day = await getOrCreateHydrationDay(userId, date);
 	const { data: intakes } = await supabase
 		.from("intake_events")
@@ -130,7 +129,7 @@ export async function recalcDay(userId: string, date: string) {
 }
 
 export async function getDaySummary(userId: string, date: string) {
-	const supabase = getRouteClient();
+	const supabase = await getRouteClient();
 	const day = await getOrCreateHydrationDay(userId, date);
 	const [{ data: intakes }, { data: workouts }] = await Promise.all([
 		supabase
