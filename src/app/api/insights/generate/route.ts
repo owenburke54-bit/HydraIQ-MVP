@@ -19,7 +19,7 @@ export async function POST(request: Request) {
 		startDate.setDate(startDate.getDate() - (rangeDays - 1));
 		const startDateStr = startDate.toISOString().slice(0, 10);
 
-		const supabase = getRouteClient();
+		const supabase = await getRouteClient();
 		// Profile
 		const { data: profile } = await supabase
 			.from("profiles")

@@ -11,7 +11,7 @@ export async function POST(request: Request) {
     const date = timestamp.toISOString().slice(0, 10);
 
     const day = await getOrCreateHydrationDay(userId, date);
-    const supabase = getRouteClient();
+    const supabase = await getRouteClient();
     const rows = types.map((t) => ({
       user_id: userId,
       hydration_day_id: day.id,

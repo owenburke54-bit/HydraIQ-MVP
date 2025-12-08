@@ -1,4 +1,4 @@
-﻿import { bad, getDaySummary, getOrCreateHydrationDay, ok, recalcDay, requireUserId } from "../_helpers";
+﻿import { bad, getDaySummary, getOrCreateHydrationDay, ok, recalcDay, requireUserId, getRouteClient } from "../_helpers";
 
 export async function POST(request: Request) {
 	try {
@@ -15,7 +15,7 @@ export async function POST(request: Request) {
 		const day = await getOrCreateHydrationDay(userId, date);
 
 		// Insert intake
-		const supabase = (await import("../_helpers")).getRouteClient();
+		const supabase = await getRouteClient();
 		const { error: insertErr } = await supabase
 			.from("intake_events")
 			.insert({

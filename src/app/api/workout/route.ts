@@ -14,7 +14,7 @@ export async function POST(request: Request) {
 		const start = new Date(startTime);
 		const date = start.toISOString().slice(0, 10);
 
-		const supabase = getRouteClient();
+		const supabase = await getRouteClient();
 		const { error: insertErr } = await supabase
 			.from("workouts")
 			.insert({
