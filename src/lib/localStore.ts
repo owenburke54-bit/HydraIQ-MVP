@@ -204,6 +204,14 @@ export function getSupplementsByDateNY(date: string): SupplementEvent[] {
 	return list.filter((s) => formatNYDate(new Date(s.timestamp)) === date);
 }
 
+export function hasCreatineOnDateNY(date: string): boolean {
+	try {
+		const list = readJSON<SupplementEvent[]>("hydra.supplements", []);
+		return list.some((s) => formatNYDate(new Date(s.timestamp)) === date && s.type === "creatine");
+	} catch {
+		return false;
+	}
+}
 export function clearAllLocalData() {
 	if (typeof window === "undefined") return;
 	window.localStorage.removeItem("hydra.profile");

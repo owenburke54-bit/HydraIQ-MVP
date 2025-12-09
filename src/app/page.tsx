@@ -6,7 +6,7 @@ import HydrationScoreCard from "../components/HydrationScoreCard";
 import HydrationProgressBar from "../components/HydrationProgressBar";
 import { Card } from "../components/ui/Card";
 import { useEffect, useState } from "react";
-import { getIntakesByDateNY, getProfile, todayNYDate, getIntakesForHome, getWorkoutsByDateNY, lastNDatesNY } from "../lib/localStore";
+import { getIntakesByDateNY, getProfile, todayNYDate, getIntakesForHome, getWorkoutsByDateNY, lastNDatesNY, hasCreatineOnDateNY } from "../lib/localStore";
 import { calculateHydrationScore, WORKOUT_ML_PER_MIN } from "../lib/hydration";
 
 export default function Home() {
@@ -117,17 +117,9 @@ export default function Home() {
 						</div>
 					);
 				})()}
-				{(() => {
-					// show creatine note if logged today
-					try {
-						const today = todayNYDate();
-						const supps = (require("../lib/localStore") as any).getSupplementsByDateNY?.(today) || [];
-						if (supps.some((s: any) => s.type === "creatine")) {
-							return <p className="mt-2 text-xs opacity-80">Creatine today increases your target slightly — aim to spread fluids through the day.</p>;
-						}
-					} catch {}
-					return null;
-				})()}
+				{hasCreatineOnDateNY(todayNYDate()) ? (
+					<p className="mt-2 text-xs opacity-80">Creatine today increases your target slightly — aim to spread fluids through the day.</p>
+				) : null}
 			</Card>
 
 			<section className="mb-20">

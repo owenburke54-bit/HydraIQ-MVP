@@ -23,6 +23,7 @@ function lastNDatesNY(n: number): string[] {
 
 export default function InsightsPage() {
 	const [points, setPoints] = useState<DayPoint[]>([]);
+	const [mode, setMode] = useState<"today" | "history">("history");
 
 	useEffect(() => {
 		const prof = getProfile();
@@ -123,6 +124,21 @@ export default function InsightsPage() {
 		<div className="p-4">
 			<h1 className="text-xl font-semibold">Insights</h1>
 
+			<div className="mt-3 flex gap-2">
+				<button
+					className={`rounded-xl border px-3 py-2 text-sm ${mode === "history" ? "border-blue-600 bg-blue-50 text-blue-700" : ""}`}
+					onClick={() => setMode("history")}
+				>
+					Last 14 days
+				</button>
+				<button
+					className={`rounded-xl border px-3 py-2 text-sm ${mode === "today" ? "border-blue-600 bg-blue-50 text-blue-700" : ""}`}
+					onClick={() => setMode("today")}
+				>
+					Today
+				</button>
+			</div>
+
 			{/* Today gauge */}
 			<section className="mt-4">
 				<Card className="p-4 flex items-center gap-4">
@@ -148,6 +164,7 @@ export default function InsightsPage() {
 					</div>
 				</Card>
 			</section>
+			{mode === "history" ? (
 			<section className="mt-4">
 				<Card className="p-4">
 					<p className="text-sm text-zinc-600 dark:text-zinc-400">Hydration Score (last 14 days)</p>
@@ -156,13 +173,23 @@ export default function InsightsPage() {
 					</div>
 				</Card>
 			</section>
+			) : null}
 
+			{mode === "history" ? (
 			<section className="mt-4">
 				<Card className="p-4">
 					<p className="text-sm text-zinc-600 dark:text-zinc-400">Intake vs Target (oz)</p>
 					<LineChart points={points} />
 				</Card>
 			</section>
+			) : (
+				<section className="mt-4">
+					<Card className="p-4">
+						<p className="text-sm text-zinc-600 dark:text-zinc-400">Today: Cumulative intake vs linear target (oz)</p>
+						<TodayChart todayPoint={points.find((p) => p.date === formatNYDate(new Date())) || null} />
+					</Card>
+				</section>
+			)}
 
 			{/* Intake distribution donut */}
 			<section className="mt-4">
@@ -244,4 +271,31 @@ function getIntakeDistribution(points: DayPoint[]) {
 		{ label: labels[1], value: a },
 		{ label: labels[2], value: e },
 	];
+}
+
+function TodayChart({ todayPoint }: { todayPoint: DayPoint | null }) {
+	if (!todayPoint) return <div className="h-40" />;
+	const w = 320, h = 120, pad = 16;
+	const startHr = 6, endHr = 21;
+	const today = formatNYDate(new Date());
+	const ints = getIntakesByDateNY(today).sort((a, b) => +new Date(a.timestamp) - +new Date(b.timestamp));
+	const cumulative: { t: number; ml: number }[] = [];
+	let sum = 0;
+	for (let hr = startHr; hr <= endHr; hr++) {
+		while (ints.length && new Date(ints[0].timestamp).getHours() <= hr) {
+			sum += ints.shift()!.volume_ml;
+		}
+		cumulative.push({ t: hr, ml: sum });
+	}
+	const maxY = Math.max(1, todayPoint.target, ...cumulative.map((c) => c.ml));
+	const scaleX = (t: number) => pad + ((t - startHr) / Math.max(1, endHr - startHr)) * (w - pad * 2);
+	const scaleY = (v: number) => h - pad - (v / maxY) * (h - pad * 2);
+	const line = (vals: { t: number; ml: number }[]) => vals.map((p, i) => `${i ? "L" : "M"} ${scaleX(p.t)} ${scaleY(p.ml)}`).join(" ");
+	const targetLine = (tgt: number) => line(cumulative.map((c, i) => ({ t: c.t, ml: (tgt / Math.max(1, cumulative.length - 1)) * i })));
+	return (
+		<svg viewBox={`0 0 ${w} ${h}`} className="mt-3 h-40 w-full">
+			<path d={targetLine(todayPoint.target)} fill="none" stroke="#94a3b8" strokeWidth="2" />
+			<path d={line(cumulative)} fill="none" stroke="#2563eb" strokeWidth="2" />
+		</svg>
+	);
 }
