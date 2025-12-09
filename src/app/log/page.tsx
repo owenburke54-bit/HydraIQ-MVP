@@ -20,10 +20,10 @@ export default function LogPage() {
 	const [supplements, setSupplements] = useState<string[]>([]);
 
 	const quicks = [
-		{ label: "8 oz", ml: 237 },
-		{ label: "12 oz", ml: 355 },
-		{ label: "16 oz", ml: 473 },
-		{ label: "24 oz", ml: 710 },
+		{ label: "8 oz", oz: 8 },
+		{ label: "12 oz", oz: 12 },
+		{ label: "16 oz", oz: 16 },
+		{ label: "24 oz", oz: 24 },
 	];
 
 	const suppOptions = [
@@ -46,24 +46,24 @@ export default function LogPage() {
 			<h1 className="text-xl font-semibold">Log Drink</h1>
 			<Card className="mt-4 p-4 space-y-4">
 				<div>
-					<label className="mb-2 block text-sm text-zinc-600 dark:text-zinc-300">Volume (ml)</label>
+					<label className="mb-2 block text-sm text-zinc-600 dark:text-zinc-300">Volume (oz)</label>
 					<input
 						type="number"
 						inputMode="numeric"
 						value={volume}
 						onChange={(e) => setVolume(e.target.value === "" ? "" : Number(e.target.value))}
-						placeholder="e.g., 300"
+						placeholder="e.g., 12"
 						className="w-full rounded-xl border border-zinc-200 bg-white p-3 text-base outline-none ring-blue-500 focus:ring-2 dark:border-zinc-800 dark:bg-zinc-900"
 					/>
 					<div className="mt-3 grid grid-cols-4 gap-2">
 						{quicks.map((q) => (
 							<button
-								key={q.label}
+								key={q.oz}
 								type="button"
-								onClick={() => setVolume(q.ml)}
+								onClick={() => setVolume(q.oz)}
 								className="rounded-xl border border-zinc-200 bg-white p-2 text-sm shadow-sm active:scale-[0.98] dark:border-zinc-800 dark:bg-zinc-900"
 							>
-								{q.label}
+								{q.oz} oz
 							</button>
 						))}
 					</div>
@@ -127,9 +127,10 @@ export default function LogPage() {
 						setLoading(true);
 						setError(null);
 						try {
-							const vol = typeof volume === "number" ? volume : 0;
-							if (vol <= 0) throw new Error("Enter a valid volume");
-							addIntake(vol, type, new Date(time));
+							const oz = typeof volume === "number" ? volume : 0;
+							if (oz <= 0) throw new Error("Enter a valid volume");
+							const ml = oz * 29.5735;
+							addIntake(ml, type, new Date(time));
 							// Supplements are ignored in local-only mode
 							window.location.href = "/";
 						} catch (e: any) {

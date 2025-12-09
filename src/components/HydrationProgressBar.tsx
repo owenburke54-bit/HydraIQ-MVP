@@ -8,9 +8,7 @@ export default function HydrationProgressBar({ actualMl, targetMl }: Props) {
 	return (
 		<section className="mb-4 rounded-2xl border border-zinc-200 bg-white p-4 shadow-md dark:border-zinc-800 dark:bg-zinc-900">
 			<div className="flex items-center justify-between text-sm text-zinc-600 dark:text-zinc-400">
-				<span>
-					{actualMl} / {targetMl} ml
-				</span>
+				<span>{Math.round(actualMl / 29.5735)} / {Math.round(Math.max(0, targetMl) / 29.5735)} oz</span>
 				<span>{pct}%</span>
 			</div>
 			<div className="mt-2 h-3 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">

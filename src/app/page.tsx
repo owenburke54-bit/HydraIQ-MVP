@@ -75,7 +75,9 @@ export default function Home() {
 			<Card className="mb-4 border-blue-100 bg-blue-50 p-4 text-blue-900 shadow-sm dark:border-blue-900/40 dark:bg-blue-950 dark:text-blue-200">
 				<p className="text-sm font-medium">Next recommendation</p>
 				<p className="mt-1 text-sm">
-					{state.actual < state.target ? "Drink 300ml in the next 2 hours" : "Nice work - you're on target today"}
+					{state.actual < state.target
+						? `Drink ~${Math.min(20, Math.max(8, Math.round((state.target - state.actual) / 29.5735)))} oz in the next 2 hours`
+						: "Nice work - you're on target today"}
 				</p>
 			</Card>
 
@@ -99,7 +101,7 @@ export default function Home() {
 							return (
 								<li key={i.id} className="flex items-center justify-between p-3 text-sm">
 									<span className="text-zinc-600 dark:text-zinc-300">{hhmm}</span>
-									<span className="font-medium">{i.volume_ml} ml</span>
+									<span className="font-medium">{Math.round(i.volume_ml / 29.5735)} oz</span>
 									<span className="text-zinc-600 capitalize dark:text-zinc-300">{i.type}</span>
 								</li>
 							);

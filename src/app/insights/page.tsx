@@ -63,7 +63,7 @@ export default function InsightsPage() {
 			points.slice(-7).reduce((s, p) => s + (isFinite(p.score) ? p.score : 0), 0) / Math.max(1, Math.min(7, points.length));
 		const lowDays = points.slice(-7).filter((p) => p.score < 60).length;
 		const messages: { title: string; body: string }[] = [];
-		if (deficit > 0) messages.push({ title: "Behind today", body: `You're ~${deficit} ml short of target.` });
+		if (deficit > 0) messages.push({ title: "Behind today", body: `You're ~${Math.round(deficit / 29.5735)} oz short of target.` });
 		else messages.push({ title: "On track", body: "You've hit your target today. Nice work." });
 		messages.push({ title: "Average score (7d)", body: `${Math.round(avgScore)}; low-score days: ${lowDays}/7.` });
 		return messages;
