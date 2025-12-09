@@ -7,6 +7,8 @@
 //
 // Note: These helpers must be called from client components only.
 
+import { WORKOUT_ML_PER_MIN } from "./hydration";
+
 type Profile = {
 	name?: string;
 	sex?: "male" | "female" | "other";
