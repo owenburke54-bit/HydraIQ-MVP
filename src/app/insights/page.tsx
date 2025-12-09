@@ -66,6 +66,53 @@ export default function InsightsPage() {
 		if (deficit > 0) messages.push({ title: "Behind today", body: `You're ~${Math.round(deficit / 29.5735)} oz short of target.` });
 		else messages.push({ title: "On track", body: "You've hit your target today. Nice work." });
 		messages.push({ title: "Average score (7d)", body: `${Math.round(avgScore)}; low-score days: ${lowDays}/7.` });
+
+		// Morning intake ratio over last 7 days
+		const last7 = points.slice(-7);
+		let morningMl = 0;
+		let totalMl = 0;
+		last7.forEach((p) => {
+			const ints = getIntakesByDateNY(p.date);
+			totalMl += ints.reduce((s, i) => s + i.volume_ml, 0);
+			morningMl += ints.filter((i) => new Date(i.timestamp).getHours() < 12).reduce((s, i) => s + i.volume_ml, 0);
+		});
+		if (totalMl > 0) {
+			const pct = Math.round((morningMl / totalMl) * 100);
+			messages.push({ title: "Morning intake (7d)", body: `${pct}% of fluids were before noon.` });
+		}
+
+		// Workout vs rest day average actual
+		let wMl = 0,
+			wDays = 0,
+			rMl = 0,
+			rDays = 0;
+		last7.forEach((p) => {
+			const ws = getWorkoutsByDateNY(p.date);
+			const ints = getIntakesByDateNY(p.date);
+			const ml = ints.reduce((s, i) => s + i.volume_ml, 0);
+			if (ws.length) {
+				wMl += ml;
+				wDays += 1;
+			} else {
+				rMl += ml;
+				rDays += 1;
+			}
+		});
+		if (wDays + rDays > 0) {
+			const wOz = Math.round((wMl / Math.max(1, wDays)) / 29.5735);
+			const rOz = Math.round((rMl / Math.max(1, rDays)) / 29.5735);
+			messages.push({ title: "Workout vs rest (7d)", body: `Avg intake: ${wOz} oz on workout days vs ${rOz} oz on rest days.` });
+		}
+
+		// Current streak meeting target
+		let streak = 0;
+		for (let i = points.length - 1; i >= 0; i--) {
+			const p = points[i];
+			if (p.actual >= p.target && p.target > 0) streak += 1;
+			else break;
+		}
+		if (streak > 0) messages.push({ title: "Streak", body: `${streak} day${streak > 1 ? "s" : ""} meeting target.` });
+
 		return messages;
 	}, [points]);
 
