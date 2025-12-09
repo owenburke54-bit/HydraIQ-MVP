@@ -49,6 +49,17 @@ export function todayNYDate(): string {
 	return formatNYDate(new Date());
 }
 
+export function lastNDatesNY(n: number): string[] {
+	const out: string[] = [];
+	const now = new Date();
+	for (let i = 1; i <= n; i++) {
+		const d = new Date(now);
+		d.setDate(now.getDate() - i);
+		out.push(formatNYDate(d));
+	}
+	return out;
+}
+
 function readJSON<T>(key: string, fallback: T): T {
 	if (typeof window === "undefined") return fallback;
 	try {

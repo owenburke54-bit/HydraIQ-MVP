@@ -86,6 +86,13 @@ export default function InsightsPage() {
 				</Card>
 			</section>
 
+			<section className="mt-4">
+				<Card className="p-4">
+					<p className="text-sm text-zinc-600 dark:text-zinc-400">Intake vs Target (oz)</p>
+					<LineChart points={points} />
+				</Card>
+			</section>
+
 			<section className="mt-4 space-y-2">
 				{quick.map((q, i) => (
 					<Card key={i} className="p-4">
@@ -100,5 +107,30 @@ export default function InsightsPage() {
 				) : null}
 			</section>
 		</div>
+	);
+}
+
+function LineChart({ points }: { points: DayPoint[] }) {
+	if (!points.length) return <div className="h-40" />;
+	const w = 320;
+	const h = 120;
+	const pad = 16;
+	const xs = points.map((_, i) => i);
+	const maxY = Math.max(1, ...points.map((p) => Math.max(p.actual, p.target)));
+	const scaleX = (i: number) => pad + (i / Math.max(1, points.length - 1)) * (w - pad * 2);
+	const scaleY = (v: number) => h - pad - (v / maxY) * (h - pad * 2);
+	const path = (vals: number[]) =>
+		vals
+			.map((v, i) => `${i === 0 ? "M" : "L"} ${scaleX(i).toFixed(2)} ${scaleY(v).toFixed(2)}`)
+			.join(" ");
+
+	const actualPath = path(points.map((p) => p.actual / 29.5735));
+	const targetPath = path(points.map((p) => p.target / 29.5735));
+
+	return (
+		<svg viewBox={`0 0 ${w} ${h}`} className="mt-3 h-40 w-full">
+			<path d={targetPath} fill="none" stroke="#94a3b8" strokeWidth="2" />
+			<path d={actualPath} fill="none" stroke="#2563eb" strokeWidth="2" />
+		</svg>
 	);
 }

@@ -6,7 +6,7 @@ import HydrationScoreCard from "../components/HydrationScoreCard";
 import HydrationProgressBar from "../components/HydrationProgressBar";
 import { Card } from "../components/ui/Card";
 import { useEffect, useState } from "react";
-import { getIntakesByDateNY, getProfile, todayNYDate, getIntakesForHome, getWorkoutsByDateNY } from "../lib/localStore";
+import { getIntakesByDateNY, getProfile, todayNYDate, getIntakesForHome, getWorkoutsByDateNY, lastNDatesNY } from "../lib/localStore";
 import { calculateHydrationScore, WORKOUT_ML_PER_MIN } from "../lib/hydration";
 
 export default function Home() {
@@ -39,7 +39,31 @@ export default function Home() {
 			const intensityFactor = 0.5 + intensity / 10; // 0.6–1.5x
 			return sum + durationMin * WORKOUT_ML_PER_MIN * intensityFactor;
 		}, 0);
-		const target = Math.round(base + workoutAdjustment);
+
+		// Carryover from previous days: add part of deficit, subtract part of surplus
+		const prevDates = lastNDatesNY(3); // yesterday, 2d, 3d ago
+		const deficitWeights = [0.3, 0.2, 0.1];
+		const surplusWeights = [0.1, 0.05, 0.02];
+		let carryover = 0;
+		prevDates.forEach((d, idx) => {
+			const prevIntakes = getIntakesByDateNY(d);
+			const prevActual = prevIntakes.reduce((s, i) => s + i.volume_ml, 0);
+			const prevWorkouts = getWorkoutsByDateNY(d);
+			const prevWorkoutAdj = prevWorkouts.reduce((sum, w) => {
+				const s = new Date(w.start_time);
+				const e = w.end_time ? new Date(w.end_time) : s;
+				const mins = Math.max(0, Math.round((e.getTime() - s.getTime()) / 60000));
+				const intens = typeof w.intensity === "number" ? w.intensity : 5;
+				const f = 0.5 + intens / 10;
+				return sum + mins * WORKOUT_ML_PER_MIN * f;
+			}, 0);
+			const prevTarget = Math.round((weight > 0 ? weight * 35 : 0) + prevWorkoutAdj);
+			const diff = prevTarget - prevActual; // positive = deficit
+			if (diff > 0) carryover += diff * (deficitWeights[idx] ?? 0);
+			else carryover += diff * (surplusWeights[idx] ?? 0); // diff negative, subtract smaller portion
+		});
+
+		const target = Math.round(base + workoutAdjustment + carryover);
 		const score =
 			target > 0
 				? calculateHydrationScore({
