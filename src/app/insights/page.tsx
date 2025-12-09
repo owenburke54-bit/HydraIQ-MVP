@@ -2,6 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Card } from "../../components/ui/Card";
+import RadialGauge from "../../components/charts/RadialGauge";
+import CalendarHeatmap from "../../components/charts/CalendarHeatmap";
+import Donut from "../../components/charts/Donut";
 import { calculateHydrationScore, WORKOUT_ML_PER_MIN } from "../../lib/hydration";
 import { getProfile, formatNYDate, getIntakesByDateNY, getWorkoutsByDateNY } from "../../lib/localStore";
 
@@ -119,16 +122,37 @@ export default function InsightsPage() {
 	return (
 		<div className="p-4">
 			<h1 className="text-xl font-semibold">Insights</h1>
+
+			{/* Today gauge */}
+			<section className="mt-4">
+				<Card className="p-4 flex items-center gap-4">
+					<div className="w-[160px] shrink-0">
+						<RadialGauge
+							value={points.length ? Math.min(1, (points[points.length - 1].actual || 0) / Math.max(1, points[points.length - 1].target || 0)) : 0}
+							label="Today"
+						/>
+					</div>
+					<div className="text-sm text-zinc-600 dark:text-zinc-400">
+						<p>
+							Target:{" "}
+							<strong>
+								{points.length ? Math.round((points[points.length - 1].target || 0) / 29.5735) : 0} oz
+							</strong>
+						</p>
+						<p>
+							Actual:{" "}
+							<strong>
+								{points.length ? Math.round((points[points.length - 1].actual || 0) / 29.5735) : 0} oz
+							</strong>
+						</p>
+					</div>
+				</Card>
+			</section>
 			<section className="mt-4">
 				<Card className="p-4">
 					<p className="text-sm text-zinc-600 dark:text-zinc-400">Hydration Score (last 14 days)</p>
-					<div className="mt-3 grid grid-cols-7 gap-2 text-center text-xs text-zinc-600 dark:text-zinc-400">
-						{points.slice(-7).map((p) => (
-							<div key={p.date} className="rounded-md border border-zinc-200 p-2 dark:border-zinc-800">
-								<div className="font-medium">{isFinite(p.score) ? p.score : "-"}</div>
-								<div className="mt-1">{p.date.slice(5)}</div>
-							</div>
-						))}
+					<div className="mt-3">
+						<CalendarHeatmap cells={points.map((p) => ({ date: p.date, value: p.score }))} />
 					</div>
 				</Card>
 			</section>
@@ -137,6 +161,20 @@ export default function InsightsPage() {
 				<Card className="p-4">
 					<p className="text-sm text-zinc-600 dark:text-zinc-400">Intake vs Target (oz)</p>
 					<LineChart points={points} />
+				</Card>
+			</section>
+
+			{/* Intake distribution donut */}
+			<section className="mt-4">
+				<Card className="p-4">
+					<p className="text-sm text-zinc-600 dark:text-zinc-400">Intake distribution (last 7 days)</p>
+					<Donut
+						slices={getIntakeDistribution(points.slice(-7)).map((s, i) => ({
+							label: s.label,
+							value: s.value,
+							color: ["#60a5fa", "#34d399", "#fbbf24"][i] || "#a3a3a3",
+						}))}
+					/>
 				</Card>
 			</section>
 
@@ -180,4 +218,26 @@ function LineChart({ points }: { points: DayPoint[] }) {
 			<path d={actualPath} fill="none" stroke="#2563eb" strokeWidth="2" />
 		</svg>
 	);
+}
+
+function getIntakeDistribution(points: DayPoint[]) {
+	const labels = ["Morning", "Afternoon", "Evening"];
+	let m = 0,
+		a = 0,
+		e = 0;
+	// Approximate from daily totals by ratio using morning-intake computation used in quick tips
+	points.forEach((p) => {
+		const ints = getIntakesByDateNY(p.date);
+		ints.forEach((i) => {
+			const hr = new Date(i.timestamp).getHours();
+			if (hr < 12) m += i.volume_ml;
+			else if (hr < 18) a += i.volume_ml;
+			else e += i.volume_ml;
+		});
+	});
+	return [
+		{ label: labels[0], value: m },
+		{ label: labels[1], value: a },
+		{ label: labels[2], value: e },
+	];
 }
