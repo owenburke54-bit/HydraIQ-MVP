@@ -95,6 +95,11 @@ export function addIntake(volumeMl: number, type: Intake["type"], ts: Date) {
 		type,
 	});
 	writeJSON("hydra.intakes", list);
+	// Persist simple daily summary
+	try {
+		const dateNY = formatNYDate(ts);
+		recomputeSummary(dateNY);
+	} catch {}
 }
 
 export function getIntakesByDate(date: string): Intake[] {
@@ -146,6 +151,34 @@ export function clearAllLocalData() {
 	window.localStorage.removeItem("hydra.profile");
 	window.localStorage.removeItem("hydra.intakes");
 	window.localStorage.removeItem("hydra.workouts");
+	window.localStorage.removeItem("hydra.summaries");
 }
 
+// --- Daily summary helpers (for multi-day calculations) ---
+type Summary = { date: string; target_ml: number; actual_ml: number };
+
+export function recomputeSummary(dateNY: string) {
+	const profile = readJSON<Profile | null>("hydra.profile", null);
+	const weight = profile?.weight_kg ?? 0;
+	const ints = getIntakesByDateNY(dateNY);
+	const actual = ints.reduce((s, i) => s + i.volume_ml, 0);
+	const w = getWorkoutsByDateNY(dateNY);
+	const workoutAdj = w.reduce((sum, ww) => {
+		const s = new Date(ww.start_time);
+		const e = ww.end_time ? new Date(ww.end_time) : s;
+		const mins = Math.max(0, Math.round((e.getTime() - s.getTime()) / 60000));
+		const intens = typeof ww.intensity === "number" ? ww.intensity : 5;
+		const f = 0.5 + intens / 10;
+		return sum + mins * WORKOUT_ML_PER_MIN * f;
+	}, 0);
+	const target = Math.round((weight > 0 ? weight * 35 : 0) + workoutAdj);
+	const map = readJSON<Record<string, Summary>>("hydra.summaries", {});
+	map[dateNY] = { date: dateNY, target_ml: target, actual_ml: actual };
+	writeJSON("hydra.summaries", map);
+}
+
+export function getSummaryByDate(dateNY: string): Summary | null {
+	const map = readJSON<Record<string, Summary>>("hydra.summaries", {});
+	return map[dateNY] ?? null;
+}
 

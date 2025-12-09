@@ -15,6 +15,8 @@ export default function ProfilePage() {
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [message, setMessage] = useState<string | null>(null);
+	const [useEst, setUseEst] = useState<boolean>(true);
+	const [unitsPref, setUnitsPref] = useState<"oz" | "ml">("oz");
 
 	useEffect(() => {
 		(async () => {
@@ -40,6 +42,11 @@ export default function ProfilePage() {
 					if (p.weight_kg) setWeight(String(p.weight_kg));
 				}
 			}
+			try {
+				const s = JSON.parse(localStorage.getItem("hydra.settings") || "{}");
+				if (s?.timezone === "auto") setUseEst(false);
+				if (s?.units === "ml") setUnitsPref("ml");
+			} catch {}
 		})();
 	}, []);
 
@@ -125,6 +132,64 @@ export default function ProfilePage() {
 					</div>
 				</div>
 
+				<div className="rounded-2xl border border-zinc-200 p-3 dark:border-zinc-800">
+					<p className="mb-2 text-sm font-medium">Settings</p>
+					<div className="flex items-center justify-between py-1 text-sm">
+						<span>Use EST timezone</span>
+						<input type="checkbox" checked={useEst} onChange={(e) => setUseEst(e.target.checked)} />
+					</div>
+					<div className="flex items-center justify-between py-1 text-sm">
+						<span>Units</span>
+						<select value={unitsPref} onChange={(e) => setUnitsPref(e.target.value as any)} className="rounded border px-2 py-1">
+							<option value="oz">US (oz)</option>
+							<option value="ml">Metric (ml)</option>
+						</select>
+					</div>
+					<div className="mt-2 flex gap-2">
+						<button
+							type="button"
+							className="rounded-xl border px-3 py-2 text-sm"
+							onClick={() => {
+								const blob = new Blob(
+									[
+										JSON.stringify(
+											{
+												profile: JSON.parse(localStorage.getItem("hydra.profile") || "null"),
+												intakes: JSON.parse(localStorage.getItem("hydra.intakes") || "[]"),
+												workouts: JSON.parse(localStorage.getItem("hydra.workouts") || "[]"),
+												summaries: JSON.parse(localStorage.getItem("hydra.summaries") || "{}"),
+											},
+											null,
+											2
+										),
+									],
+									{ type: "application/json" }
+								);
+								const url = URL.createObjectURL(blob);
+								const a = document.createElement("a");
+								a.href = url;
+								a.download = "hydraiq-export.json";
+								a.click();
+								URL.revokeObjectURL(url);
+							}}
+						>
+							Export data
+						</button>
+						<button
+							type="button"
+							className="rounded-xl border px-3 py-2 text-sm text-red-600"
+							onClick={() => {
+								if (confirm("Reset all local data? This cannot be undone.")) {
+									localStorage.clear();
+									location.reload();
+								}
+							}}
+						>
+							Reset data
+						</button>
+					</div>
+				</div>
+
 				<button
 					type="button"
 					disabled={loading}
@@ -151,6 +216,8 @@ export default function ProfilePage() {
 								weight_kg = lbs ? Math.round(lbs * 0.453592) : null;
 							}
 							saveProfile({ name, sex, height_cm, weight_kg, units });
+							// Persist settings
+							localStorage.setItem("hydra.settings", JSON.stringify({ timezone: useEst ? "est" : "auto", units: unitsPref }));
 							setMessage("Saved!");
 							setTimeout(() => (window.location.href = "/"), 600);
 						} catch (e: any) {
