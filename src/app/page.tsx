@@ -98,11 +98,36 @@ export default function Home() {
 
 			<Card className="mb-4 border-blue-100 bg-blue-50 p-4 text-blue-900 shadow-sm dark:border-blue-900/40 dark:bg-blue-950 dark:text-blue-200">
 				<p className="text-sm font-medium">Next recommendation</p>
-				<p className="mt-1 text-sm">
-					{state.actual < state.target
-						? `Drink ~${Math.min(20, Math.max(8, Math.round((state.target - state.actual) / 29.5735)))} oz in the next 2 hours`
-						: "Nice work - you're on target today"}
-				</p>
+				{(() => {
+					const deficitMl = Math.max(0, state.target - state.actual);
+					const deficitOz = Math.round(deficitMl / 29.5735);
+					if (deficitMl <= 0) {
+						return <p className="mt-1 text-sm">Nice work — you’re on target. Keep sipping water with meals.</p>;
+					}
+					// plan: half now, rest spread hourly until 9pm
+					const now = new Date();
+					const end = new Date(now); end.setHours(21, 0, 0, 0);
+					const hoursLeft = Math.max(1, Math.ceil((end.getTime() - now.getTime()) / 3600000));
+					const nowOz = Math.max(6, Math.min(20, Math.round(deficitOz * 0.5)));
+					const perHour = Math.max(4, Math.round((deficitOz - nowOz) / hoursLeft));
+					return (
+						<div className="mt-1 text-sm">
+							<p>Drink {nowOz} oz now, then {perHour} oz each hour until ~9pm.</p>
+							<p className="mt-1 text-xs opacity-80">Tip: small sips every ~20–30 min are easier than big chugs.</p>
+						</div>
+					);
+				})()}
+				{(() => {
+					// show creatine note if logged today
+					try {
+						const today = todayNYDate();
+						const supps = (require("../lib/localStore") as any).getSupplementsByDateNY?.(today) || [];
+						if (supps.some((s: any) => s.type === "creatine")) {
+							return <p className="mt-2 text-xs opacity-80">Creatine today increases your target slightly — aim to spread fluids through the day.</p>;
+						}
+					} catch {}
+					return null;
+				})()}
 			</Card>
 
 			<section className="mb-20">

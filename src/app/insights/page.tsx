@@ -202,8 +202,12 @@ function LineChart({ points }: { points: DayPoint[] }) {
 	const pad = 16;
 	const xs = points.map((_, i) => i);
 	const maxY = Math.max(1, ...points.map((p) => Math.max(p.actual, p.target)));
+	const minY = Math.min(0, ...points.map((p) => Math.min(p.actual, p.target)));
 	const scaleX = (i: number) => pad + (i / Math.max(1, points.length - 1)) * (w - pad * 2);
-	const scaleY = (v: number) => h - pad - (v / maxY) * (h - pad * 2);
+	const scaleY = (v: number) => {
+		const range = maxY - minY || 1;
+		return h - pad - ((v - minY) / range) * (h - pad * 2);
+	};
 	const path = (vals: number[]) =>
 		vals
 			.map((v, i) => `${i === 0 ? "M" : "L"} ${scaleX(i).toFixed(2)} ${scaleY(v).toFixed(2)}`)

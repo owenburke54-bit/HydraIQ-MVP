@@ -150,30 +150,45 @@ export default function ProfilePage() {
 							type="button"
 							className="rounded-xl border px-3 py-2 text-sm"
 							onClick={() => {
-								const blob = new Blob(
-									[
-										JSON.stringify(
-											{
-												profile: JSON.parse(localStorage.getItem("hydra.profile") || "null"),
-												intakes: JSON.parse(localStorage.getItem("hydra.intakes") || "[]"),
-												workouts: JSON.parse(localStorage.getItem("hydra.workouts") || "[]"),
-												summaries: JSON.parse(localStorage.getItem("hydra.summaries") || "{}"),
-											},
-											null,
-											2
-										),
-									],
-									{ type: "application/json" }
+								// Export CSVs: intakes, workouts, supplements
+								const toCsv = (rows: string[][]) => rows.map((r) => r.map((v) => `"${(v ?? "").toString().replace(/"/g, '""')}"`).join(",")).join("\n");
+								const intakes = JSON.parse(localStorage.getItem("hydra.intakes") || "[]");
+								const workouts = JSON.parse(localStorage.getItem("hydra.workouts") || "[]");
+								const supplements = JSON.parse(localStorage.getItem("hydra.supplements") || "[]");
+								const dl = (name: string, text: string) => {
+									const blob = new Blob([text], { type: "text/csv" });
+									const url = URL.createObjectURL(blob);
+									const a = document.createElement("a");
+									a.href = url;
+									a.download = name;
+									a.click();
+									URL.revokeObjectURL(url);
+								};
+								dl(
+									"hydra_intakes.csv",
+									toCsv([["date", "time", "type", "volume_oz"]].concat(intakes.map((i: any) => {
+										const d = new Date(i.timestamp);
+										return [d.toISOString().slice(0, 10), d.toTimeString().slice(0, 5), i.type, String(Math.round(i.volume_ml / 29.5735))];
+									})))
 								);
-								const url = URL.createObjectURL(blob);
-								const a = document.createElement("a");
-								a.href = url;
-								a.download = "hydraiq-export.json";
-								a.click();
-								URL.revokeObjectURL(url);
+								dl(
+									"hydra_workouts.csv",
+									toCsv([["date", "start", "end", "type", "intensity", "duration_min"]].concat(workouts.map((w: any) => {
+										const s = new Date(w.start_time), e = w.end_time ? new Date(w.end_time) : s;
+										const mins = Math.max(0, Math.round((e.getTime() - s.getTime()) / 60000));
+										return [s.toISOString().slice(0, 10), s.toTimeString().slice(0, 5), e.toTimeString().slice(0, 5), w.type || "", String(w.intensity || 0), String(mins)];
+									})))
+								);
+								dl(
+									"hydra_supplements.csv",
+									toCsv([["date", "time", "type", "grams"]].concat(supplements.map((s: any) => {
+										const d = new Date(s.timestamp);
+										return [d.toISOString().slice(0, 10), d.toTimeString().slice(0, 5), s.type, String(s.grams ?? "")];
+									})))
+								);
 							}}
 						>
-							Export data
+							Export CSV
 						</button>
 						<button
 							type="button"
