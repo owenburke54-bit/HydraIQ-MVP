@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Button from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
+import { addIntake } from "../../lib/localStore";
 
 export default function LogPage() {
 	const [volume, setVolume] = useState<number | "">("");
@@ -120,42 +121,11 @@ export default function LogPage() {
 						setLoading(true);
 						setError(null);
 						try {
-							// 1) Save intake
-							const intakeRes = await fetch("/api/intake", {
-								method: "POST",
-								headers: { "Content-Type": "application/json" },
-								body: JSON.stringify({
-									volumeMl: typeof volume === "number" ? volume : 0,
-									type,
-									timestamp: new Date(time).toISOString(),
-								}),
-							});
-							if (!intakeRes.ok) {
-								if (intakeRes.status === 401) {
-									window.location.href = "/auth/login?redirect=/log";
-									return;
-								}
-								const j = await intakeRes.json().catch(() => ({} as any));
-								throw new Error(j?.error ?? "Failed to save drink");
-							}
-
-							// 2) Save supplements if any
-							if (supplements.length) {
-								const suppRes = await fetch("/api/supplement", {
-									method: "POST",
-									headers: { "Content-Type": "application/json" },
-									body: JSON.stringify({
-										types: supplements,
-										timestamp: new Date(time).toISOString(),
-									}),
-								});
-								if (!suppRes.ok) {
-									const j2 = await suppRes.json().catch(() => ({} as any));
-									throw new Error(j2?.error ?? "Failed to save supplements");
-								}
-							}
-
-							location.href = "/";
+							const vol = typeof volume === "number" ? volume : 0;
+							if (vol <= 0) throw new Error("Enter a valid volume");
+							addIntake(vol, type, new Date(time));
+							// Supplements are ignored in local-only mode
+							window.location.href = "/";
 						} catch (e: any) {
 							setError(e.message || "Unexpected error");
 						} finally {

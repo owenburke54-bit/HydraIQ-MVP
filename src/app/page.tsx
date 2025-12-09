@@ -1,36 +1,37 @@
-﻿import Link from "next/link";
+﻿"use client";
+
+import Link from "next/link";
 import { Droplet, User } from "lucide-react";
 import HydrationScoreCard from "../components/HydrationScoreCard";
 import HydrationProgressBar from "../components/HydrationProgressBar";
 import { Card } from "../components/ui/Card";
-import { headers } from "next/headers";
+import { useEffect, useState } from "react";
+import { getIntakesByDate, getProfile } from "../lib/localStore";
+import { calculateHydrationScore } from "../lib/hydration";
 
-async function getBaseUrl() {
-	const h = await headers();
-	const host = h.get("x-forwarded-host") ?? h.get("host");
-	const proto = h.get("x-forwarded-proto") ?? (host?.includes("localhost") ? "http" : "https");
-	return `${proto}://${host}`;
-}
-
-async function getSummary() {
-	const date = new Date().toISOString().slice(0, 10);
-	const base = process.env.NEXT_PUBLIC_BASE_URL || (await getBaseUrl());
-	const res = await fetch(`${base}/api/day-summary?date=${date}`, {
-		cache: "no-store",
+export default function Home() {
+	const [state, setState] = useState({
+		target: 0,
+		actual: 0,
+		score: 0,
+		intakes: [] as { id: string; timestamp: string; volume_ml: number; type: string }[],
 	});
-	if (!res.ok) {
-		return null;
-	}
-	return res.json();
-}
 
-export default async function Home() {
-	const data = await getSummary();
-	const day = data?.day;
-	const intakes: { id: string; timestamp: string; volume_ml: number; type: string }[] = data?.intakes ?? [];
-	const actual = day?.actual_ml ?? 0;
-	const target = day?.target_ml ?? 0;
-	const score = day?.hydration_score ?? 0;
+	useEffect(() => {
+		const today = new Date().toISOString().slice(0, 10);
+		const profile = getProfile();
+		const weight = profile?.weight_kg ?? 70;
+		const target = Math.round(weight * 35); // simple base target without workouts
+		const intakes = getIntakesByDate(today);
+		const actual = intakes.reduce((s, i) => s + i.volume_ml, 0);
+		const score = calculateHydrationScore({
+			targetMl: target,
+			actualMl: actual,
+			intakes: intakes.map((i) => ({ timestamp: new Date(i.timestamp), volumeMl: i.volume_ml })),
+			workouts: [],
+		});
+		setState({ target, actual, score, intakes });
+	}, []);
 
 	return (
 		<div className="p-4">
@@ -48,26 +49,26 @@ export default async function Home() {
 				</Link>
 			</header>
 
-			<HydrationScoreCard score={score} />
+			<HydrationScoreCard score={state.score} />
 
-			<HydrationProgressBar actualMl={actual} targetMl={target} />
+			<HydrationProgressBar actualMl={state.actual} targetMl={state.target} />
 
 			<Card className="mb-4 border-blue-100 bg-blue-50 p-4 text-blue-900 shadow-sm dark:border-blue-900/40 dark:bg-blue-950 dark:text-blue-200">
 				<p className="text-sm font-medium">Next recommendation</p>
 				<p className="mt-1 text-sm">
-					{actual < target ? "Drink 300ml in the next 2 hours" : "Nice work - you're on target today"}
+					{state.actual < state.target ? "Drink 300ml in the next 2 hours" : "Nice work - you're on target today"}
 				</p>
 			</Card>
 
 			<section className="mb-20">
 				<h2 className="mb-2 text-lg font-semibold">Today's intake</h2>
-				{intakes.length === 0 ? (
+				{state.intakes.length === 0 ? (
 					<div className="rounded-2xl border border-dashed border-zinc-300 p-6 text-center text-sm text-zinc-600 dark:border-zinc-800 dark:text-zinc-400">
 						No drinks logged yet.
 					</div>
 				) : (
 					<ul className="divide-y divide-zinc-200 overflow-hidden rounded-2xl border border-zinc-200 bg-white dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-900">
-						{intakes.map((i) => {
+						{state.intakes.map((i) => {
 							const d = new Date(i.timestamp);
 							const hh = String(d.getHours()).padStart(2, "0");
 							const mm = String(d.getMinutes()).padStart(2, "0");

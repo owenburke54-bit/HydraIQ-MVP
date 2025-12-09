@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useEffect, useState } from "react";
+import { getProfile, saveProfile } from "../../lib/localStore";
 
 type Units = "metric" | "imperial";
 type Sex = "male" | "female" | "other";
@@ -17,18 +18,14 @@ export default function ProfilePage() {
 
 	useEffect(() => {
 		(async () => {
-			try {
-				const res = await fetch("/api/profile", { method: "GET" });
-				if (!res.ok) return;
-				const p = await res.json();
-				if (p) {
-					setName(p.name ?? "");
-					setSex((p.sex as Sex) ?? "other");
-					setUnits((p.units as Units) ?? "imperial");
-					if (p.height_cm) setHeight(String(p.height_cm));
-					if (p.weight_kg) setWeight(String(p.weight_kg));
-				}
-			} catch {}
+			const p = getProfile();
+			if (p) {
+				setName(p.name ?? "");
+				setSex((p.sex as Sex) ?? "other");
+				setUnits((p.units as Units) ?? "imperial");
+				if (p.height_cm) setHeight(String(p.height_cm));
+				if (p.weight_kg) setWeight(String(p.weight_kg));
+			}
 		})();
 	}, []);
 
@@ -123,29 +120,25 @@ export default function ProfilePage() {
 						setError(null);
 						setMessage(null);
 						try {
-							const res = await fetch("/api/profile", {
-								method: "POST",
-								headers: { "Content-Type": "application/json" },
-								body: JSON.stringify({
-									name,
-									sex,
-									heightCm: units === "metric" ? Number(height) || 0 : undefined,
-									weightKg: units === "metric" ? Number(weight) || 0 : undefined,
-									units,
-									heightImperial: units === "imperial" ? height : undefined,
-									weightLbs: units === "imperial" ? Number(weight) || 0 : undefined,
-								}),
-							});
-							if (!res.ok) {
-								if (res.status === 401) {
-                                    window.location.href = "/auth/login?redirect=/profile";
-									return;
+							// Save locally
+							let height_cm: number | null = null;
+							let weight_kg: number | null = null;
+							if (units === "metric") {
+								height_cm = Number(height) || null;
+								weight_kg = Number(weight) || null;
+							} else {
+								const m = (height || "").match(/(\d+)'(\d+)/);
+								if (m) {
+									const ft = Number(m[1]) || 0;
+									const inches = Number(m[2]) || 0;
+									height_cm = Math.round((ft * 12 + inches) * 2.54);
 								}
-								const j = await res.json().catch(() => ({}));
-								throw new Error(j?.error ?? "Failed to save profile");
+								const lbs = Number(weight) || 0;
+								weight_kg = lbs ? Math.round(lbs * 0.453592) : null;
 							}
+							saveProfile({ name, sex, height_cm, weight_kg, units });
 							setMessage("Saved!");
-							setTimeout(() => (window.location.href = "/"), 800);
+							setTimeout(() => (window.location.href = "/"), 600);
 						} catch (e: any) {
 							setError(e.message || "Failed to save profile");
 						} finally {
