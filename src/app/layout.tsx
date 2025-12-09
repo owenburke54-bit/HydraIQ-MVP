@@ -2,6 +2,7 @@
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import BottomNav from "../components/BottomNav";
+import RegisterSW from "../components/RegisterSW";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -31,6 +32,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        <RegisterSW />
         <div className="mx-auto flex min-h-screen max-w-[420px] flex-col bg-white text-zinc-900 dark:bg-black dark:text-zinc-100">
           <main className="flex-1 overflow-x-hidden pb-[88px]">
             {children}
