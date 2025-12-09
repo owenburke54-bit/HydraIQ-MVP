@@ -33,6 +33,12 @@ type Workout = {
 	intensity?: number | null;
 };
 
+type SupplementEvent = {
+	id: string;
+	timestamp: string; // ISO
+	type: "creatine" | "protein" | "multivitamin" | "fish_oil" | "electrolyte_tablet" | "other";
+	grams?: number | null;
+};
 export function formatNYDate(d: Date): string {
 	// YYYY-MM-DD in America/New_York
 	const parts = new Intl.DateTimeFormat("en-CA", {
@@ -149,6 +155,28 @@ export function getWorkoutsByDateNY(date: string): Workout[] {
 	return list.filter((w) => formatNYDate(new Date(w.start_time)) === date);
 }
 
+export function addSupplements(events: { types: SupplementEvent["type"][]; timestamp: Date; grams?: number | null }) {
+	const list = readJSON<SupplementEvent[]>("hydra.supplements", []);
+	events.types.forEach((t) => {
+		list.push({
+			id: crypto?.randomUUID?.() ?? String(Date.now()),
+			timestamp: events.timestamp.toISOString(),
+			type: t,
+			grams: events.grams ?? null,
+		});
+	});
+	writeJSON("hydra.supplements", list);
+	// Recompute summary for this date
+	try {
+		recomputeSummary(formatNYDate(events.timestamp));
+	} catch {}
+}
+
+export function getSupplementsByDateNY(date: string): SupplementEvent[] {
+	const list = readJSON<SupplementEvent[]>("hydra.supplements", []);
+	return list.filter((s) => formatNYDate(new Date(s.timestamp)) === date);
+}
+
 export function clearAllLocalData() {
 	if (typeof window === "undefined") return;
 	window.localStorage.removeItem("hydra.profile");
@@ -175,7 +203,13 @@ export function recomputeSummary(dateNY: string) {
 		const f = 0.5 + intens / 10;
 		return sum + mins * WORKOUT_ML_PER_MIN * f;
 	}, 0);
-	const target = Math.round((weight > 0 ? weight * 35 : 0) + workoutAdj);
+	// Supplements: creatine increases target (~70 ml per gram)
+	const supps = getSupplementsByDateNY(dateNY);
+	const suppAdj = supps.reduce((sum, s) => {
+		if (s.type === "creatine" && s.grams && s.grams > 0) return sum + s.grams * 70;
+		return sum;
+	}, 0);
+	const target = Math.round((weight > 0 ? weight * 35 : 0) + workoutAdj + suppAdj);
 	const map = readJSON<Record<string, Summary>>("hydra.summaries", {});
 	map[dateNY] = { date: dateNY, target_ml: target, actual_ml: actual };
 	writeJSON("hydra.summaries", map);
