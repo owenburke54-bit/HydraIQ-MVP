@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import Link from "next/link";
 import { getSupabaseBrowserClient } from "../../../lib/supabaseClient";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -8,7 +8,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
-export default function LoginPage() {
+function LoginInner() {
 	const router = useRouter();
 	const params = useSearchParams();
 	const [email, setEmail] = useState("");
@@ -77,6 +77,14 @@ export default function LoginPage() {
 				</p>
 			</div>
 		</div>
+	);
+}
+
+export default function LoginPage() {
+	return (
+		<Suspense fallback={<div className="p-4">Loading...</div>}>
+			<LoginInner />
+		</Suspense>
 	);
 }
 
