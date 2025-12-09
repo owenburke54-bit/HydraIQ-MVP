@@ -18,6 +18,7 @@ export default function LogPage() {
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [supplements, setSupplements] = useState<string[]>([]);
+	const [suppGrams, setSuppGrams] = useState<number | "">("");
 
 	const quicks = [
 		{ label: "8 oz", oz: 8 },
@@ -107,6 +108,19 @@ export default function LogPage() {
 							</button>
 						))}
 					</div>
+					{supplements.includes("creatine") ? (
+						<div className="mt-3">
+							<label className="mb-2 block text-sm text-zinc-600 dark:text-zinc-300">Creatine (grams)</label>
+							<input
+								type="number"
+								inputMode="numeric"
+								value={suppGrams}
+								onChange={(e) => setSuppGrams(e.target.value === "" ? "" : Number(e.target.value))}
+								placeholder="e.g., 5"
+								className="w-full rounded-xl border border-zinc-200 bg-white p-3 text-base outline-none ring-blue-500 focus:ring-2 dark:border-zinc-800 dark:bg-zinc-900"
+							/>
+						</div>
+					) : null}
 				</div>
 
 				<div>
@@ -130,8 +144,14 @@ export default function LogPage() {
 							const oz = typeof volume === "number" ? volume : 0;
 							if (oz <= 0) throw new Error("Enter a valid volume");
 							const ml = oz * 29.5735;
-							addIntake(ml, type, new Date(time));
-							// Supplements are ignored in local-only mode
+							const when = new Date(time);
+							addIntake(ml, type, when);
+							if (supplements.length) {
+								const grams = typeof suppGrams === "number" ? suppGrams : null;
+								// Store supplement events; creatine grams used for target adjustment
+								const add = (await import("../../lib/localStore")).addSupplements;
+								add({ types: supplements, timestamp: when, grams });
+							}
 							window.location.href = "/";
 						} catch (e: any) {
 							setError(e.message || "Unexpected error");

@@ -206,7 +206,7 @@ export default function ProfilePage() {
 								height_cm = Number(height) || null;
 								weight_kg = Number(weight) || null;
 							} else {
-								const m = (height || "").match(/(\d+)'(\d+)/);
+								const m = (height || "").match(/(\d+)[^0-9]+(\d+)/);
 								if (m) {
 									const ft = Number(m[1]) || 0;
 									const inches = Number(m[2]) || 0;

@@ -141,6 +141,7 @@ export function addWorkout(data: { start: Date; end?: Date; durationMin?: number
 		intensity: data.intensity ?? null,
 	});
 	writeJSON("hydra.workouts", list);
+	recomputeSummary(formatNYDate(data.start));
 }
 
 export function getWorkoutsByDateNY(date: string): Workout[] {
@@ -154,6 +155,7 @@ export function clearAllLocalData() {
 	window.localStorage.removeItem("hydra.intakes");
 	window.localStorage.removeItem("hydra.workouts");
 	window.localStorage.removeItem("hydra.summaries");
+	window.localStorage.removeItem("hydra.supplements");
 }
 
 // --- Daily summary helpers (for multi-day calculations) ---
