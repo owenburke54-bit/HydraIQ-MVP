@@ -8,7 +8,13 @@ import { addIntake } from "../../lib/localStore";
 export default function LogPage() {
 	const [volume, setVolume] = useState<number | "">("");
 	const [type, setType] = useState<"water" | "electrolyte" | "other">("water");
-	const [time, setTime] = useState<string>(new Date().toISOString().slice(0, 16));
+	const [time, setTime] = useState<string>(() => {
+		const d = new Date();
+		const pad = (n: number) => String(n).padStart(2, "0");
+		return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(
+			d.getMinutes()
+		)}`;
+	});
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [supplements, setSupplements] = useState<string[]>([]);

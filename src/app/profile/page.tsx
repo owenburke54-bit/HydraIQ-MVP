@@ -22,9 +22,23 @@ export default function ProfilePage() {
 			if (p) {
 				setName(p.name ?? "");
 				setSex((p.sex as Sex) ?? "other");
-				setUnits((p.units as Units) ?? "imperial");
-				if (p.height_cm) setHeight(String(p.height_cm));
-				if (p.weight_kg) setWeight(String(p.weight_kg));
+				const u = (p.units as Units) ?? "imperial";
+				setUnits(u);
+				if (u === "imperial") {
+					// Convert back to ft'in and lbs for display
+					if (p.height_cm) {
+						const totalIn = Math.round((p.height_cm as number) / 2.54);
+						const ft = Math.floor(totalIn / 12);
+						const inches = totalIn % 12;
+						setHeight(`${ft}'${inches}`);
+					}
+					if (p.weight_kg) {
+						setWeight(String(Math.round((p.weight_kg as number) * 2.20462)));
+					}
+				} else {
+					if (p.height_cm) setHeight(String(p.height_cm));
+					if (p.weight_kg) setWeight(String(p.weight_kg));
+				}
 			}
 		})();
 	}, []);

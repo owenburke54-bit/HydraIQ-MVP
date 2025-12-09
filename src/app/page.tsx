@@ -6,7 +6,7 @@ import HydrationScoreCard from "../components/HydrationScoreCard";
 import HydrationProgressBar from "../components/HydrationProgressBar";
 import { Card } from "../components/ui/Card";
 import { useEffect, useState } from "react";
-import { getIntakesByDate, getProfile } from "../lib/localStore";
+import { getIntakesByDateNY, getProfile } from "../lib/localStore";
 import { calculateHydrationScore } from "../lib/hydration";
 
 export default function Home() {
@@ -20,16 +20,23 @@ export default function Home() {
 	useEffect(() => {
 		const today = new Date().toISOString().slice(0, 10);
 		const profile = getProfile();
-		const weight = profile?.weight_kg ?? 70;
-		const target = Math.round(weight * 35); // simple base target without workouts
-		const intakes = getIntakesByDate(today);
+		const intakes = getIntakesByDateNY(today);
 		const actual = intakes.reduce((s, i) => s + i.volume_ml, 0);
-		const score = calculateHydrationScore({
-			targetMl: target,
-			actualMl: actual,
-			intakes: intakes.map((i) => ({ timestamp: new Date(i.timestamp), volumeMl: i.volume_ml })),
-			workouts: [],
-		});
+		if (!profile) {
+			setState({ target: 0, actual, score: 0, intakes });
+			return;
+		}
+		const weight = profile.weight_kg ?? 0;
+		const target = weight > 0 ? Math.round(weight * 35) : 0;
+		const score =
+			target > 0
+				? calculateHydrationScore({
+						targetMl: target,
+						actualMl: actual,
+						intakes: intakes.map((i) => ({ timestamp: new Date(i.timestamp), volumeMl: i.volume_ml })),
+						workouts: [],
+				  })
+				: 0;
 		setState({ target, actual, score, intakes });
 	}, []);
 
@@ -70,13 +77,16 @@ export default function Home() {
 					<ul className="divide-y divide-zinc-200 overflow-hidden rounded-2xl border border-zinc-200 bg-white dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-900">
 						{state.intakes.map((i) => {
 							const d = new Date(i.timestamp);
-							const hh = String(d.getHours()).padStart(2, "0");
-							const mm = String(d.getMinutes()).padStart(2, "0");
+							const nf = new Intl.DateTimeFormat("en-US", {
+								timeZone: "America/New_York",
+								hour: "2-digit",
+								minute: "2-digit",
+								hour12: false,
+							});
+							const hhmm = nf.format(d);
 							return (
 								<li key={i.id} className="flex items-center justify-between p-3 text-sm">
-									<span className="text-zinc-600 dark:text-zinc-300">
-										{hh}:{mm}
-									</span>
+									<span className="text-zinc-600 dark:text-zinc-300">{hhmm}</span>
 									<span className="font-medium">{i.volume_ml} ml</span>
 									<span className="text-zinc-600 capitalize dark:text-zinc-300">{i.type}</span>
 								</li>

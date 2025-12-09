@@ -3,12 +3,20 @@
 import { useState } from "react";
 import Button from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
+import { addWorkout } from "../../lib/localStore";
+
+function formatLocalInput(dt: Date) {
+	const pad = (n: number) => String(n).padStart(2, "0");
+	return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(
+		dt.getMinutes()
+	)}`;
+}
 
 export default function WorkoutsPage() {
 	const [open, setOpen] = useState(true);
 	const [type, setType] = useState<string>("Run");
-	const [start, setStart] = useState<string>(new Date().toISOString().slice(0, 16));
-	const [end, setEnd] = useState<string>(new Date().toISOString().slice(0, 16));
+	const [start, setStart] = useState<string>(formatLocalInput(new Date()));
+	const [end, setEnd] = useState<string>(formatLocalInput(new Date()));
 	const [intensity, setIntensity] = useState<number>(5);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -83,21 +91,13 @@ export default function WorkoutsPage() {
 								setLoading(true);
 								setError(null);
 								try {
-									const res = await fetch("/api/workout", {
-										method: "POST",
-										headers: { "Content-Type": "application/json" },
-										body: JSON.stringify({
-											type: type.toLowerCase(),
-											startTime: new Date(start).toISOString(),
-											endTime: new Date(end).toISOString(),
-											intensity,
-										}),
+									addWorkout({
+										type: type.toLowerCase(),
+										start: new Date(start),
+										end: new Date(end),
+										intensity,
 									});
-									if (!res.ok) {
-										const j = await res.json().catch(() => ({}));
-										throw new Error(j?.error ?? "Failed to save workout");
-									}
-									location.reload();
+									window.location.reload();
 								} catch (e: any) {
 									setError(e.message || "Failed to save workout");
 								} finally {

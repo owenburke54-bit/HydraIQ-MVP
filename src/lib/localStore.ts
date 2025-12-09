@@ -22,6 +22,29 @@ type Intake = {
 	type: "water" | "electrolyte" | "other";
 };
 
+type Workout = {
+	id: string;
+	start_time: string; // ISO
+	end_time?: string | null;
+	duration_min?: number | null;
+	type?: string | null;
+	intensity?: number | null;
+};
+
+function formatNYDate(d: Date): string {
+	// YYYY-MM-DD in America/New_York
+	const parts = new Intl.DateTimeFormat("en-CA", {
+		timeZone: "America/New_York",
+		year: "numeric",
+		month: "2-digit",
+		day: "2-digit",
+	}).formatToParts(d);
+	const y = parts.find((p) => p.type === "year")?.value ?? "0000";
+	const m = parts.find((p) => p.type === "month")?.value ?? "01";
+	const dd = parts.find((p) => p.type === "day")?.value ?? "01";
+	return `${y}-${m}-${dd}`;
+}
+
 function readJSON<T>(key: string, fallback: T): T {
 	if (typeof window === "undefined") return fallback;
 	try {
@@ -62,6 +85,29 @@ export function addIntake(volumeMl: number, type: Intake["type"], ts: Date) {
 export function getIntakesByDate(date: string): Intake[] {
 	const list = readJSON<Intake[]>("hydra.intakes", []);
 	return list.filter((i) => i.timestamp.slice(0, 10) === date);
+}
+
+export function getIntakesByDateNY(date: string): Intake[] {
+	const list = readJSON<Intake[]>("hydra.intakes", []);
+	return list.filter((i) => formatNYDate(new Date(i.timestamp)) === date);
+}
+
+export function addWorkout(data: { start: Date; end?: Date; durationMin?: number; intensity?: number; type?: string }) {
+	const list = readJSON<Workout[]>("hydra.workouts", []);
+	list.push({
+		id: crypto?.randomUUID?.() ?? String(Date.now()),
+		start_time: data.start.toISOString(),
+		end_time: data.end ? data.end.toISOString() : null,
+		duration_min: data.durationMin ?? null,
+		type: data.type ?? null,
+		intensity: data.intensity ?? null,
+	});
+	writeJSON("hydra.workouts", list);
+}
+
+export function getWorkoutsByDateNY(date: string): Workout[] {
+	const list = readJSON<Workout[]>("hydra.workouts", []);
+	return list.filter((w) => formatNYDate(new Date(w.start_time)) === date);
 }
 
 export function clearAllLocalData() {
