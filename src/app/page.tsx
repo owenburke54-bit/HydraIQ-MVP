@@ -6,7 +6,7 @@ import HydrationScoreCard from "../components/HydrationScoreCard";
 import HydrationProgressBar from "../components/HydrationProgressBar";
 import { Card } from "../components/ui/Card";
 import { useEffect, useState } from "react";
-import { getIntakesByDateNY, getProfile } from "../lib/localStore";
+import { getIntakesByDateNY, getProfile, todayNYDate, getIntakesForHome } from "../lib/localStore";
 import { calculateHydrationScore } from "../lib/hydration";
 
 export default function Home() {
@@ -18,9 +18,10 @@ export default function Home() {
 	});
 
 	useEffect(() => {
-		const today = new Date().toISOString().slice(0, 10);
+		const today = todayNYDate();
 		const profile = getProfile();
-		const intakes = getIntakesByDateNY(today);
+		// Prefer NY date filter, but include a fallback to avoid edge mismatch
+		const intakes = getIntakesForHome(today).length ? getIntakesForHome(today) : getIntakesByDateNY(today);
 		const actual = intakes.reduce((s, i) => s + i.volume_ml, 0);
 		if (!profile) {
 			setState({ target: 0, actual, score: 0, intakes });

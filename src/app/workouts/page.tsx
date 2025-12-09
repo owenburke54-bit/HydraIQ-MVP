@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Button from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
-import { addWorkout } from "../../lib/localStore";
+import { addWorkout, getWorkoutsByDateNY, todayNYDate } from "../../lib/localStore";
 
 function formatLocalInput(dt: Date) {
 	const pad = (n: number) => String(n).padStart(2, "0");
@@ -20,6 +20,9 @@ export default function WorkoutsPage() {
 	const [intensity, setIntensity] = useState<number>(5);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [message, setMessage] = useState<string | null>(null);
+
+	const todays = getWorkoutsByDateNY(todayNYDate());
 
 	const workoutOptions = [
 		"Soccer",
@@ -97,7 +100,8 @@ export default function WorkoutsPage() {
 										end: new Date(end),
 										intensity,
 									});
-									window.location.reload();
+									setMessage("Saved workout");
+									setTimeout(() => window.location.reload(), 500);
 								} catch (e: any) {
 									setError(e.message || "Failed to save workout");
 								} finally {
@@ -116,8 +120,33 @@ export default function WorkoutsPage() {
 
 			<div className="mt-6">
 				<h2 className="mb-2 text-lg font-semibold">Upcoming & recent</h2>
-				{/* No examples yet */}
+				{todays.length === 0 ? (
+					<p className="text-sm text-zinc-600 dark:text-zinc-400">No workouts today.</p>
+				) : (
+					<ul className="space-y-2 text-sm">
+						{todays.map((w) => (
+							<li key={w.id} className="rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
+								{w.type ?? "Workout"} •{" "}
+								{new Intl.DateTimeFormat("en-US", {
+									timeZone: "America/New_York",
+									hour: "2-digit",
+									minute: "2-digit",
+									hour12: false,
+								}).format(new Date(w.start_time))}
+								{w.end_time
+									? `–${new Intl.DateTimeFormat("en-US", {
+											timeZone: "America/New_York",
+											hour: "2-digit",
+											minute: "2-digit",
+											hour12: false,
+									  }).format(new Date(w.end_time))}`
+									: null}
+							</li>
+						))}
+					</ul>
+				)}
 				{error ? <p className="pt-2 text-center text-sm text-red-600">{error}</p> : null}
+				{message ? <p className="pt-2 text-center text-sm text-green-600">{message}</p> : null}
 			</div>
 		</div>
 	);

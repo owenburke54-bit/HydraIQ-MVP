@@ -31,7 +31,7 @@ type Workout = {
 	intensity?: number | null;
 };
 
-function formatNYDate(d: Date): string {
+export function formatNYDate(d: Date): string {
 	// YYYY-MM-DD in America/New_York
 	const parts = new Intl.DateTimeFormat("en-CA", {
 		timeZone: "America/New_York",
@@ -43,6 +43,10 @@ function formatNYDate(d: Date): string {
 	const m = parts.find((p) => p.type === "month")?.value ?? "01";
 	const dd = parts.find((p) => p.type === "day")?.value ?? "01";
 	return `${y}-${m}-${dd}`;
+}
+
+export function todayNYDate(): string {
+	return formatNYDate(new Date());
 }
 
 function readJSON<T>(key: string, fallback: T): T {
@@ -92,6 +96,16 @@ export function getIntakesByDateNY(date: string): Intake[] {
 	return list.filter((i) => formatNYDate(new Date(i.timestamp)) === date);
 }
 
+export function getIntakesForHome(dateNY: string): Intake[] {
+	const list = readJSON<Intake[]>("hydra.intakes", []);
+	// Also allow simple string compare fallback to avoid any tz edge cases
+	const localIso = new Date().toISOString().slice(0, 10);
+	return list.filter((i) => {
+		const nyMatch = formatNYDate(new Date(i.timestamp)) === dateNY;
+		const simpleMatch = i.timestamp.slice(0, 10) === localIso;
+		return nyMatch || simpleMatch;
+	});
+}
 export function addWorkout(data: { start: Date; end?: Date; durationMin?: number; intensity?: number; type?: string }) {
 	const list = readJSON<Workout[]>("hydra.workouts", []);
 	list.push({
