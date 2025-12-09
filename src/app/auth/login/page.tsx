@@ -1,20 +1,28 @@
 ﻿"use client";
 
-import { Suspense, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { getSupabaseBrowserClient } from "../../../lib/supabaseClient";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
-function LoginInner() {
+export default function LoginPage() {
 	const router = useRouter();
-	const params = useSearchParams();
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [redirect, setRedirect] = useState<string | null>(null);
+
+	useEffect(() => {
+		// Avoid useSearchParams to remove Suspense requirement
+		if (typeof window !== "undefined") {
+			const sp = new URLSearchParams(window.location.search);
+			setRedirect(sp.get("redirect"));
+		}
+	}, []);
 
 	async function onSubmit() {
 		setLoading(true);
@@ -32,8 +40,7 @@ function LoginInner() {
 			setError(error.message);
 			return;
 		}
-		const redirect = params.get("redirect") || "/";
-		router.replace(redirect);
+		router.replace(redirect || "/");
 	}
 
 	return (
@@ -77,14 +84,6 @@ function LoginInner() {
 				</p>
 			</div>
 		</div>
-	);
-}
-
-export default function LoginPage() {
-	return (
-		<Suspense fallback={<div className="p-4">Loading...</div>}>
-			<LoginInner />
-		</Suspense>
 	);
 }
 
