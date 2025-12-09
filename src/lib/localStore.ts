@@ -155,6 +155,33 @@ export function getWorkoutsByDateNY(date: string): Workout[] {
 	return list.filter((w) => formatNYDate(new Date(w.start_time)) === date);
 }
 
+export function updateWorkout(id: string, patch: Partial<Workout>) {
+	const list = readJSON<Workout[]>("hydra.workouts", []);
+	const idx = list.findIndex((w) => w.id === id);
+	if (idx === -1) return;
+	const old = list[idx];
+	const next = { ...old, ...patch };
+	list[idx] = next;
+	writeJSON("hydra.workouts", list);
+	// Recompute summaries for old and new dates if changed
+	try {
+		recomputeSummary(formatNYDate(new Date(old.start_time)));
+		recomputeSummary(formatNYDate(new Date(next.start_time)));
+	} catch {}
+}
+
+export function deleteWorkout(id: string) {
+	const list = readJSON<Workout[]>("hydra.workouts", []);
+	const idx = list.findIndex((w) => w.id === id);
+	if (idx === -1) return;
+	const old = list[idx];
+	list.splice(idx, 1);
+	writeJSON("hydra.workouts", list);
+	try {
+		recomputeSummary(formatNYDate(new Date(old.start_time)));
+	} catch {}
+}
+
 export function addSupplements(events: { types: SupplementEvent["type"][]; timestamp: Date; grams?: number | null }) {
 	const list = readJSON<SupplementEvent[]>("hydra.supplements", []);
 	events.types.forEach((t) => {

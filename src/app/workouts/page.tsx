@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Button from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
-import { addWorkout, getWorkoutsByDateNY, todayNYDate } from "../../lib/localStore";
+import { addWorkout, getWorkoutsByDateNY, todayNYDate, updateWorkout, deleteWorkout } from "../../lib/localStore";
 
 function formatLocalInput(dt: Date) {
 	const pad = (n: number) => String(n).padStart(2, "0");
@@ -16,7 +16,8 @@ export default function WorkoutsPage() {
 	const [open, setOpen] = useState(true);
 	const [type, setType] = useState<string>("Run");
 	const [start, setStart] = useState<string>(formatLocalInput(new Date()));
-	const [end, setEnd] = useState<string>(formatLocalInput(new Date()));
+	const [end, setEnd] = useState<string>(formatLocalInput(new Date(Date.now() + 60 * 60 * 1000)));
+	const [endTouched, setEndTouched] = useState(false);
 	const [intensity, setIntensity] = useState<number>(5);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -67,7 +68,14 @@ export default function WorkoutsPage() {
 							<input
 								type="datetime-local"
 								value={start}
-								onChange={(e) => setStart(e.target.value)}
+								onChange={(e) => {
+									setStart(e.target.value);
+									if (!endTouched) {
+										const d = new Date(e.target.value);
+										const plus1h = new Date(d.getTime() + 60 * 60 * 1000);
+										setEnd(formatLocalInput(plus1h));
+									}
+								}}
 								className="rounded-xl border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900"
 							/>
 
@@ -75,7 +83,10 @@ export default function WorkoutsPage() {
 							<input
 								type="datetime-local"
 								value={end}
-								onChange={(e) => setEnd(e.target.value)}
+								onChange={(e) => {
+									setEndTouched(true);
+									setEnd(e.target.value);
+								}}
 								className="rounded-xl border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900"
 							/>
 
@@ -123,33 +134,119 @@ export default function WorkoutsPage() {
 				{todays.length === 0 ? (
 					<p className="text-sm text-zinc-600 dark:text-zinc-400">No workouts today.</p>
 				) : (
-					<ul className="space-y-2 text-sm">
-						{todays.map((w) => (
-							<li key={w.id} className="rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
-								{w.type ?? "Workout"} •{" "}
-								{new Intl.DateTimeFormat("en-US", {
-									timeZone: "America/New_York",
-									hour: "2-digit",
-									minute: "2-digit",
-									hour12: false,
-								}).format(new Date(w.start_time))}
-								{w.end_time
-									? `–${new Intl.DateTimeFormat("en-US", {
-											timeZone: "America/New_York",
-											hour: "2-digit",
-											minute: "2-digit",
-											hour12: false,
-									  }).format(new Date(w.end_time))}`
-									: null}
-							</li>
-						))}
-					</ul>
+					<ListEditable workouts={todays} />
 				)}
 				{error ? <p className="pt-2 text-center text-sm text-red-600">{error}</p> : null}
 				{message ? <p className="pt-2 text-center text-sm text-green-600">{message}</p> : null}
 			</div>
 		</div>
 	);
+}
+
+function ListEditable({ workouts }: { workouts: any[] }) {
+	const [editing, setEditing] = useState<string | null>(null);
+	const [form, setForm] = useState<any>(null);
+
+	if (!workouts.length) return null;
+
+	return (
+		<ul className="space-y-2 text-sm">
+			{workouts.map((w) => {
+				const isEditing = editing === w.id;
+				return (
+					<li key={w.id} className="rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
+						{!isEditing ? (
+							<div className="flex items-center justify-between gap-2">
+								<div>
+									<div className="font-medium">{(w.type || "Workout")}</div>
+									<div className="text-zinc-600 dark:text-zinc-400">
+										{fmtTime(w.start_time)}{w.end_time ? `–${fmtTime(w.end_time)}` : ""} • Intensity {w.intensity ?? 5}
+									</div>
+								</div>
+								<div className="flex gap-2">
+									<button
+										className="rounded border px-2 py-1"
+										onClick={() => {
+											setEditing(w.id);
+											setForm({
+												type: w.type || "Workout",
+												start: formatLocalInput(new Date(w.start_time)),
+												end: formatLocalInput(w.end_time ? new Date(w.end_time) : new Date(w.start_time)),
+												intensity: w.intensity ?? 5,
+											});
+										}}
+									>
+										Edit
+									</button>
+									<button
+										className="rounded border px-2 py-1 text-red-600"
+										onClick={() => {
+											if (confirm("Delete this workout?")) {
+												deleteWorkout(w.id);
+												location.reload();
+											}
+										}}
+									>
+										Delete
+									</button>
+								</div>
+							</div>
+						) : (
+							<div className="grid gap-2">
+								<input
+									className="rounded-xl border p-2"
+									value={form.type}
+									onChange={(e) => setForm({ ...form, type: e.target.value })}
+								/>
+								<input
+									type="datetime-local"
+									className="rounded-xl border p-2"
+									value={form.start}
+									onChange={(e) => setForm({ ...form, start: e.target.value })}
+								/>
+								<input
+									type="datetime-local"
+									className="rounded-xl border p-2"
+									value={form.end}
+									onChange={(e) => setForm({ ...form, end: e.target.value })}
+								/>
+								<input
+									type="range"
+									min={1}
+									max={10}
+									value={form.intensity}
+									onChange={(e) => setForm({ ...form, intensity: Number(e.target.value) })}
+								/>
+								<div className="flex gap-2">
+									<button
+										className="rounded border px-3 py-2"
+										onClick={() => {
+											updateWorkout(w.id, {
+												type: form.type,
+												start_time: new Date(form.start).toISOString(),
+												end_time: new Date(form.end).toISOString(),
+												intensity: form.intensity,
+											});
+											location.reload();
+										}}
+									>
+										Save
+									</button>
+									<button className="rounded border px-3 py-2" onClick={() => setEditing(null)}>
+										Cancel
+									</button>
+								</div>
+							</div>
+						)}
+					</li>
+				);
+			})}
+		</ul>
+	);
+}
+
+function fmtTime(iso: string) {
+	return new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(iso));
 }
 
 
