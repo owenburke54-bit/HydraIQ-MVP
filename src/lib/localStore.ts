@@ -108,11 +108,17 @@ export function getIntakesForHome(dateNY: string): Intake[] {
 }
 export function addWorkout(data: { start: Date; end?: Date; durationMin?: number; intensity?: number; type?: string }) {
 	const list = readJSON<Workout[]>("hydra.workouts", []);
+	const durationMin =
+		typeof data.durationMin === "number"
+			? data.durationMin
+			: data.end
+			? Math.max(0, Math.round((data.end.getTime() - data.start.getTime()) / 60000))
+			: null;
 	list.push({
 		id: crypto?.randomUUID?.() ?? String(Date.now()),
 		start_time: data.start.toISOString(),
 		end_time: data.end ? data.end.toISOString() : null,
-		duration_min: data.durationMin ?? null,
+		duration_min: durationMin,
 		type: data.type ?? null,
 		intensity: data.intensity ?? null,
 	});

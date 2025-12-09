@@ -6,8 +6,8 @@ import HydrationScoreCard from "../components/HydrationScoreCard";
 import HydrationProgressBar from "../components/HydrationProgressBar";
 import { Card } from "../components/ui/Card";
 import { useEffect, useState } from "react";
-import { getIntakesByDateNY, getProfile, todayNYDate, getIntakesForHome } from "../lib/localStore";
-import { calculateHydrationScore } from "../lib/hydration";
+import { getIntakesByDateNY, getProfile, todayNYDate, getIntakesForHome, getWorkoutsByDateNY } from "../lib/localStore";
+import { calculateHydrationScore, WORKOUT_ML_PER_MIN } from "../lib/hydration";
 
 export default function Home() {
 	const [state, setState] = useState({
@@ -22,13 +22,24 @@ export default function Home() {
 		const profile = getProfile();
 		// Prefer NY date filter, but include a fallback to avoid edge mismatch
 		const intakes = getIntakesForHome(today).length ? getIntakesForHome(today) : getIntakesByDateNY(today);
+		const workouts = getWorkoutsByDateNY(today);
 		const actual = intakes.reduce((s, i) => s + i.volume_ml, 0);
 		if (!profile) {
 			setState({ target: 0, actual, score: 0, intakes });
 			return;
 		}
 		const weight = profile.weight_kg ?? 0;
-		const target = weight > 0 ? Math.round(weight * 35) : 0;
+		// Base target + workout adjustment
+		const base = weight > 0 ? weight * 35 : 0;
+		const workoutAdjustment = workouts.reduce((sum, w) => {
+			const start = new Date(w.start_time);
+			const end = w.end_time ? new Date(w.end_time) : start;
+			const durationMin = Math.max(0, Math.round((end.getTime() - start.getTime()) / 60000));
+			const intensity = typeof w.intensity === "number" ? w.intensity : 5;
+			const intensityFactor = 0.5 + intensity / 10; // 0.6–1.5x
+			return sum + durationMin * WORKOUT_ML_PER_MIN * intensityFactor;
+		}, 0);
+		const target = Math.round(base + workoutAdjustment);
 		const score =
 			target > 0
 				? calculateHydrationScore({
