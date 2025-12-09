@@ -5,6 +5,8 @@ import Button from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { addIntake } from "../../lib/localStore";
 
+type SuppKey = "creatine" | "protein" | "multivitamin" | "fish_oil" | "electrolyte_tablet" | "other";
+
 export default function LogPage() {
 	const [volume, setVolume] = useState<number | "">("");
 	const [type, setType] = useState<"water" | "electrolyte" | "other">("water");
@@ -17,7 +19,7 @@ export default function LogPage() {
 	});
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	const [supplements, setSupplements] = useState<string[]>([]);
+	const [supplements, setSupplements] = useState<SuppKey[]>([]);
 	const [suppGrams, setSuppGrams] = useState<number | "">("");
 
 	const quicks = [
@@ -27,7 +29,7 @@ export default function LogPage() {
 		{ label: "24 oz", oz: 24 },
 	];
 
-	const suppOptions = [
+	const suppOptions: { key: SuppKey; label: string }[] = [
 		{ key: "creatine", label: "Creatine" },
 		{ key: "protein", label: "Protein Powder" },
 		{ key: "multivitamin", label: "Multivitamin" },
@@ -36,7 +38,7 @@ export default function LogPage() {
 		{ key: "other", label: "Other" },
 	];
 
-	function toggleSupp(key: string) {
+	function toggleSupp(key: SuppKey) {
 		setSupplements((prev) =>
 			prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
 		);
