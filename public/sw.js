@@ -19,7 +19,7 @@ self.addEventListener("fetch", (event) => {
 
   if (url.origin === location.origin && (req.mode === "navigate" || url.pathname.startsWith("/_next/") || url.pathname.startsWith("/icons/"))) {
     event.respondWith(
-      caches.open("hydraiq-v3").then(async (cache) => {
+      caches.open("hydraiq-v4").then(async (cache) => {
         const cached = await cache.match(req);
         if (cached) return cached;
         try {
