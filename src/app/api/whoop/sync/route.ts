@@ -77,7 +77,28 @@ export async function GET(req: Request) {
 		return res;
 	};
 	const res = await fetchData();
-	if (!res.ok) return NextResponse.json({ error: "Failed to fetch activities" }, { status: 500 });
+	// Gracefully treat "no content" or "not found" as zero activities
+	if (res.status === 204 || res.status === 404) {
+		return NextResponse.json({ activities: [] }, { status: 200 });
+	}
+
+	if (!res.ok) {
+		// Surface WHOOP's error details for easier debugging
+		let body: any = null;
+		try {
+			const text = await res.text();
+			try {
+				body = JSON.parse(text);
+			} catch {
+				body = text;
+			}
+		} catch {}
+		return NextResponse.json(
+			{ error: "WHOOP request failed", status: res.status, body },
+			{ status: res.status }
+		);
+	}
+
 	const data = await res.json();
 
 	// Return data and update refresh cookie if it rotated
