@@ -25,6 +25,20 @@ export default function InsightsPage() {
 	const [points, setPoints] = useState<DayPoint[]>([]);
 	const [mode, setMode] = useState<"today" | "history">("history");
 	const today = formatNYDate(new Date());
+	const [whoop, setWhoop] = useState<{ sleepHours: number | null; recovery: number | null } | null>(null);
+
+	// Fetch WHOOP sleep/recovery for today if connected
+	useEffect(() => {
+		(async () => {
+			try {
+				const res = await fetch(`/api/whoop/metrics?date=${today}`, { credentials: "include" });
+				if (res.ok) {
+					const j = await res.json();
+					setWhoop({ sleepHours: j.sleep_hours ?? null, recovery: j.recovery_score ?? null });
+				}
+			} catch {}
+		})();
+	}, [today]);
 
 	// Breakdown of today's target: base + workouts + creatine
 	const todayBreakdown = useMemo(() => {
@@ -52,9 +66,30 @@ export default function InsightsPage() {
 
 		const lines: { label: string; added: number }[] = [{ label: "Base need", added: base }, ...workoutLines];
 		if (creatineMl > 0) lines.push({ label: "Creatine", added: Math.round(creatineMl) });
-		const total = lines.reduce((s, l) => s + l.added, 0);
+
+		const baseTarget = lines.reduce((s, l) => s + l.added, 0);
+
+		// WHOOP modifiers (bounded, transparent)
+		let modPct = 0;
+		if (whoop?.sleepHours != null) {
+			const h = whoop.sleepHours;
+			if (h < 7.5) modPct += Math.max(0, (7.5 - h)) * 0.03; // +3% per hour below 7.5
+			else if (h > 8.5) modPct -= Math.max(0, (h - 8.5)) * 0.02; // -2% per hour above 8.5
+			lines.push({ label: `Sleep (${h.toFixed(1)} h)`, added: Math.round(baseTarget * (modPct)) });
+		}
+		if (whoop?.recovery != null) {
+			let rAdj = 0;
+			const r = whoop.recovery;
+			if (r < 33) rAdj = 0.05;
+			else if (r < 66) rAdj = 0.02;
+			// show this separately; do not double count with sleep
+			lines.push({ label: `Recovery (${Math.round(r)}%)`, added: Math.round(baseTarget * rAdj) });
+			modPct += rAdj;
+		}
+
+		const total = Math.round(baseTarget + baseTarget * modPct);
 		return { lines, total };
-	}, []);
+	}, [today, whoop]);
 
 	useEffect(() => {
 		const prof = getProfile();
@@ -175,7 +210,11 @@ export default function InsightsPage() {
 				<Card className="p-4 flex items-center gap-4">
 					<div className="w-[160px] shrink-0">
 						<RadialGauge
-							value={points.length ? Math.min(1, (points[points.length - 1].actual || 0) / Math.max(1, points[points.length - 1].target || 0)) : 0}
+							value={(() => {
+								const actual = points.length ? (points[points.length - 1].actual || 0) : 0;
+								const tgt = todayBreakdown?.total ?? (points.length ? (points[points.length - 1].target || 0) : 0);
+								return Math.min(1, actual / Math.max(1, tgt));
+							})()}
 							label="Today"
 						/>
 					</div>
@@ -183,7 +222,10 @@ export default function InsightsPage() {
 						<p>
 							Target:{" "}
 							<strong>
-								{points.length ? Math.round((points[points.length - 1].target || 0) / 29.5735) : 0} oz
+								{(() => {
+									const tgt = todayBreakdown?.total ?? (points.length ? (points[points.length - 1].target || 0) : 0);
+									return Math.round(tgt / 29.5735);
+								})()} oz
 							</strong>
 						</p>
 						<p>
