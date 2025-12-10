@@ -138,7 +138,8 @@ export default function WorkoutsPage() {
 						onClick={async () => {
 							try {
 								const d = todayNYDate();
-								const res = await fetch(`/api/whoop/sync?date=${d}`);
+								// Explicitly include credentials to ensure httpOnly cookies (whoop_refresh/whoop_access) are sent
+								const res = await fetch(`/api/whoop/sync?date=${d}`, { credentials: "include" });
 								const json = await res.json();
 								if (res.ok && Array.isArray(json.activities)) {
 									let count = 0;

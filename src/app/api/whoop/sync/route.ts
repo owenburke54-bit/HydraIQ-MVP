@@ -1,6 +1,9 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
+// Ensure Node runtime so cookies() behaves consistently and we can use standard node APIs if needed.
+export const runtime = "nodejs";
+
 async function getRefreshToken() {
 	const cookieStore = await cookies();
 	const raw = cookieStore.get("whoop_refresh")?.value || "";
