@@ -90,11 +90,12 @@ export default function WorkoutsPage() {
 								className="rounded-xl border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900"
 							/>
 
-							<label className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">Intensity: {intensity}</label>
+							<label className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">Strain: {Number(intensity).toFixed(1)}</label>
 							<input
 								type="range"
-								min={1}
-								max={10}
+								min={0}
+								max={21}
+								step={0.1}
 								value={intensity}
 								onChange={(e) => setIntensity(Number(e.target.value))}
 								className="w-full"
@@ -206,7 +207,7 @@ function ListEditable({ workouts }: { workouts: any[] }) {
 									<div className="text-zinc-600 dark:text-zinc-400">
 										{fmtTime(w.start_time)}{w.end_time ? `–${fmtTime(w.end_time)}` : ""} • {/^whoop/i.test(String(w.type || ""))
 											? (typeof w.intensity === "number" ? `WHOOP Strain ${w.intensity.toFixed(1)}` : "Recovery")
-											: `Intensity ${w.intensity ?? 5}`}
+											: `Strain ${typeof w.intensity === "number" ? w.intensity.toFixed(1) : "—"}`}
 									</div>
 								</div>
 								<div className="flex gap-2">

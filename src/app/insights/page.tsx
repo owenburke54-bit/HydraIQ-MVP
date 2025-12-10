@@ -127,64 +127,44 @@ export default function InsightsPage() {
 
 	const quick = useMemo(() => {
 		if (points.length === 0) return [];
-		const last = points[points.length - 1];
-		const deficit = last.target > 0 ? last.target - last.actual : 0;
-		const avgScore =
-			points.slice(-7).reduce((s, p) => s + (isFinite(p.score) ? p.score : 0), 0) / Math.max(1, Math.min(7, points.length));
-		const lowDays = points.slice(-7).filter((p) => p.score < 60).length;
 		const messages: { title: string; body: string }[] = [];
-		if (deficit > 0) messages.push({ title: "Behind today", body: `You're ~${Math.round(deficit / 29.5735)} oz short of target.` });
-		else messages.push({ title: "On track", body: "You've hit your target today. Nice work." });
-		messages.push({ title: "Average score (7d)", body: `${Math.round(avgScore)}; low-score days: ${lowDays}/7.` });
 
-		// Morning intake ratio over last 7 days
+		// 1) Hydration pacing (today)
+		const last = points[points.length - 1];
+		const tgt = todayBreakdown?.total ?? last.target;
+		const deficit = tgt > 0 ? tgt - last.actual : 0;
+		if (deficit > 0) messages.push({ title: "Hydration pacing", body: `You're ~${Math.round(deficit / 29.5735)} oz behind target today.` });
+		else messages.push({ title: "Hydration pacing", body: "You're on pace or ahead of today's target." });
+
+		// 2) Time-of-day habit (7d)
 		const last7 = points.slice(-7);
-		let morningMl = 0;
-		let totalMl = 0;
+		let morning = 0, afternoon = 0, evening = 0;
 		last7.forEach((p) => {
 			const ints = getIntakesByDateNY(p.date);
-			totalMl += ints.reduce((s, i) => s + i.volume_ml, 0);
-			morningMl += ints.filter((i) => new Date(i.timestamp).getHours() < 12).reduce((s, i) => s + i.volume_ml, 0);
+			ints.forEach((i) => {
+				const hr = new Date(i.timestamp).getHours();
+				if (hr < 12) morning += i.volume_ml;
+				else if (hr < 18) afternoon += i.volume_ml;
+				else evening += i.volume_ml;
+			});
 		});
-		if (totalMl > 0) {
-			const pct = Math.round((morningMl / totalMl) * 100);
-			messages.push({ title: "Morning intake (7d)", body: `${pct}% of fluids were before noon.` });
+		const total = morning + afternoon + evening;
+		if (total > 0) {
+			const top = Math.max(morning, afternoon, evening);
+			const bucket = top === morning ? "mornings" : top === afternoon ? "afternoons" : "evenings";
+			messages.push({ title: "Behavior pattern (7d)", body: `Most intake happens in the ${bucket}. Try front-loading on workout days.` });
 		}
 
-		// Workout vs rest day average actual
-		let wMl = 0,
-			wDays = 0,
-			rMl = 0,
-			rDays = 0;
-		last7.forEach((p) => {
-			const ws = getWorkoutsByDateNY(p.date);
-			const ints = getIntakesByDateNY(p.date);
-			const ml = ints.reduce((s, i) => s + i.volume_ml, 0);
-			if (ws.length) {
-				wMl += ml;
-				wDays += 1;
-			} else {
-				rMl += ml;
-				rDays += 1;
-			}
-		});
-		if (wDays + rDays > 0) {
-			const wOz = Math.round((wMl / Math.max(1, wDays)) / 29.5735);
-			const rOz = Math.round((rMl / Math.max(1, rDays)) / 29.5735);
-			messages.push({ title: "Workout vs rest (7d)", body: `Avg intake: ${wOz} oz on workout days vs ${rOz} oz on rest days.` });
+		// 3) WHOOP synergy
+		if (whoop?.sleepHours != null || whoop?.recovery != null) {
+			const parts: string[] = [];
+			if (whoop.sleepHours != null) parts.push(`sleep ${whoop.sleepHours.toFixed(1)} h`);
+			if (whoop.recovery != null) parts.push(`recovery ${Math.round(whoop.recovery)}%`);
+			messages.push({ title: "WHOOP synergy", body: `Target accounts for ${parts.join(", ")} today.` });
 		}
 
-		// Current streak meeting target
-		let streak = 0;
-		for (let i = points.length - 1; i >= 0; i--) {
-			const p = points[i];
-			if (p.actual >= p.target && p.target > 0) streak += 1;
-			else break;
-		}
-		if (streak > 0) messages.push({ title: "Streak", body: `${streak} day${streak > 1 ? "s" : ""} meeting target.` });
-
-		return messages;
-	}, [points]);
+		return messages.slice(0, 5);
+	}, [points, todayBreakdown, whoop]);
 
 	return (
 		<div className="p-4">
@@ -285,17 +265,11 @@ export default function InsightsPage() {
 				</section>
 			)}
 
-			{/* Intake distribution donut */}
+			{/* Time-of-day stacked bars (7d) */}
 			<section className="mt-4">
 				<Card className="p-4">
-					<p className="text-sm text-zinc-600 dark:text-zinc-400">Intake distribution (last 7 days)</p>
-					<Donut
-						slices={getIntakeDistribution(points.slice(-7)).map((s, i) => ({
-							label: s.label,
-							value: s.value,
-							color: ["#60a5fa", "#34d399", "#fbbf24"][i] || "#a3a3a3",
-						}))}
-					/>
+					<p className="text-sm text-zinc-600 dark:text-zinc-400">Intake by time of day (last 7 days)</p>
+					<StackedBars points={points.slice(-7)} />
 				</Card>
 			</section>
 
@@ -365,6 +339,46 @@ function getIntakeDistribution(points: DayPoint[]) {
 		{ label: labels[1], value: a },
 		{ label: labels[2], value: e },
 	];
+}
+
+function StackedBars({ points }: { points: DayPoint[] }) {
+	const days = points;
+	if (!days.length) return <div className="h-32" />;
+
+	const rows = days.map((p) => {
+		let m = 0, a = 0, e = 0;
+		const ints = getIntakesByDateNY(p.date);
+		ints.forEach((i) => {
+			const hr = new Date(i.timestamp).getHours();
+			if (hr < 12) m += i.volume_ml;
+			else if (hr < 18) a += i.volume_ml;
+			else e += i.volume_ml;
+		});
+		const total = m + a + e || 1;
+		return { date: p.date.slice(5), m: m / total, a: a / total, e: e / total };
+	});
+
+	const w = 320, h = 100, pad = 16;
+	const barW = (w - pad * 2) / Math.max(1, rows.length);
+
+	return (
+		<svg viewBox={`0 0 ${w} ${h}`} className="mt-3 h-28 w-full">
+			{rows.map((r, i) => {
+				const x = pad + i * barW;
+				const mH = r.m * (h - pad * 2);
+				const aH = r.a * (h - pad * 2);
+				const eH = r.e * (h - pad * 2);
+				let y = h - pad;
+				return (
+					<g key={i}>
+						<rect x={x + 2} y={(y -= mH)} width={barW - 4} height={mH} fill="#60a5fa" />
+						<rect x={x + 2} y={(y -= aH)} width={barW - 4} height={aH} fill="#34d399" />
+						<rect x={x + 2} y={(y -= eH)} width={barW - 4} height={eH} fill="#fbbf24" />
+					</g>
+				);
+			})}
+		</svg>
+	);
 }
 
 function TodayChart({ todayPoint }: { todayPoint: DayPoint | null }) {

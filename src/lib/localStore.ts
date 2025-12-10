@@ -234,8 +234,9 @@ export function recomputeSummary(dateNY: string) {
 		const s = new Date(ww.start_time);
 		const e = ww.end_time ? new Date(ww.end_time) : s;
 		const mins = Math.max(0, Math.round((e.getTime() - s.getTime()) / 60000));
-		const intens = typeof ww.intensity === "number" ? ww.intensity : 5;
-		const f = 0.5 + intens / 10;
+		// Treat intensity as WHOOP strain (0–21). Map to factor 0.5–1.5x.
+		const strain = typeof ww.intensity === "number" ? Math.max(0, Math.min(21, ww.intensity)) : 5;
+		const f = 0.5 + strain / 21;
 		return sum + mins * WORKOUT_ML_PER_MIN * f;
 	}, 0);
 	// Supplements: creatine increases target (~70 ml per gram)

@@ -4,6 +4,7 @@ export const HEAT_MULTIPLIER = 1.1;
 
 export type DailyHydrationInputs = {
 	weightKg: number;
+	// strain: WHOOP strain (0–21). We keep property name 'intensity' for backwards-compat.
 	workouts: { durationMin: number; intensity: number }[];
 	isHotDay?: boolean;
 };
@@ -12,7 +13,9 @@ export function calculateHydrationTarget(inputs: DailyHydrationInputs) {
 	const baseNeed = inputs.weightKg * BASE_ML_PER_KG;
 
 	const workoutAdjustment = inputs.workouts.reduce((total, w) => {
-		const intensityFactor = 0.5 + w.intensity / 10; // 0.6â€“1.5x
+		// Map strain (0–21) to a factor ~0.5–1.5x
+		const strain = Math.max(0, Math.min(21, Number(w.intensity) || 0));
+		const intensityFactor = 0.5 + strain / 21;
 		return total + w.durationMin * WORKOUT_ML_PER_MIN * intensityFactor;
 	}, 0);
 
