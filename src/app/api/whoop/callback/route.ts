@@ -58,17 +58,4 @@ export async function GET(req: Request) {
 	}
 }
 
-			httpOnly: true,
-			secure: true,
-			path: "/",
-			maxAge: 60 * 60 * 24 * 30,
-			sameSite: "lax",
-		});
-
-		return res;
-	} catch (e) {
-		return NextResponse.redirect(home);
-	}
-}
-
 
