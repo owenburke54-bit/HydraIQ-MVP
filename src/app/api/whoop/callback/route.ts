@@ -7,7 +7,7 @@ export async function GET(req: Request) {
 	const url = new URL(req.url);
 	const code = url.searchParams.get("code");
 	const home = new URL("/", url);
-	const jar = cookies();
+	const cookieStore = await cookies();
 
 	// If missing or test/error, don’t try to exchange; just bounce back cleanly.
 	if (!code || code === "test" || url.searchParams.has("error")) {
@@ -16,7 +16,7 @@ export async function GET(req: Request) {
 
 	// Validate OAuth state to prevent CSRF
 	const returnedState = url.searchParams.get("state") || "";
-	const expectedState = jar.get("whoop_state")?.value || "";
+	const expectedState = cookieStore.get("whoop_state")?.value || "";
 	if (!returnedState || returnedState.length < 8 || !expectedState || expectedState !== returnedState) {
 		return NextResponse.redirect(new URL("/?whoop=state_mismatch", url));
 	}
@@ -39,9 +39,10 @@ export async function GET(req: Request) {
 		}
 
 		const tokens = await tokenRes.json();
-		// Clear one-time state cookie and set tokens via cookies() in a Node route handler
-		jar.set("whoop_state", "", { path: "/", maxAge: 0 });
-		jar.set("whoop_tokens", JSON.stringify(tokens), {
+		// Clear one-time state cookie and set tokens on the redirect response
+		const res = NextResponse.redirect(new URL("/?whoop=connected", url));
+		res.cookies.set("whoop_state", "", { path: "/", maxAge: 0 });
+		res.cookies.set("whoop_tokens", JSON.stringify(tokens), {
 			httpOnly: true,
 			secure: true,
 			path: "/",
@@ -49,7 +50,7 @@ export async function GET(req: Request) {
 			sameSite: "lax",
 		});
 
-		return NextResponse.redirect(new URL("/?whoop=connected", url));
+		return res;
 	} catch (e) {
 		return NextResponse.redirect(home);
 	}
