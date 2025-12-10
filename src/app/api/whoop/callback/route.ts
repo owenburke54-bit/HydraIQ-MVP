@@ -5,23 +5,24 @@ export const runtime = "nodejs";
 
 export async function GET(req: Request) {
 	const url = new URL(req.url);
-	const code = url.searchParams.get("code");
 	const home = new URL("/", url);
-	const cookieStore = await cookies();
-
-	// If missing or test/error, don’t try to exchange; just bounce back cleanly.
-	if (!code || code === "test" || url.searchParams.has("error")) {
-		return NextResponse.redirect(new URL("/?whoop=auth_error", url));
-	}
-
-	// Validate OAuth state to prevent CSRF
-	const returnedState = url.searchParams.get("state") || "";
-	const expectedState = cookieStore.get("whoop_state")?.value || "";
-	if (!returnedState || returnedState.length < 8 || !expectedState || expectedState !== returnedState) {
-		return NextResponse.redirect(new URL("/?whoop=state_mismatch", url));
-	}
 
 	try {
+		const code = url.searchParams.get("code");
+		const cookieStore = await cookies();
+
+		// If missing or test/error, don’t try to exchange; just bounce back cleanly.
+		if (!code || code === "test" || url.searchParams.has("error")) {
+			return NextResponse.redirect(new URL("/?whoop=auth_error", url));
+		}
+
+		// Validate OAuth state to prevent CSRF
+		const returnedState = url.searchParams.get("state") || "";
+		const expectedState = cookieStore.get("whoop_state")?.value || "";
+		if (!returnedState || returnedState.length < 8 || !expectedState || expectedState !== returnedState) {
+			return NextResponse.redirect(new URL("/?whoop=state_mismatch", url));
+		}
+
 		const tokenRes = await fetch("https://api.prod.whoop.com/oauth/oauth2/token", {
 			method: "POST",
 			headers: { "Content-Type": "application/x-www-form-urlencoded" },
