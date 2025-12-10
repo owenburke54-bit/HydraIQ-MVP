@@ -15,11 +15,11 @@ async function getRefreshToken() {
 
 async function getAccessTokenFromCookie() {
 	const jar = await cookies();
-	the constRaw = jar.get("whoop_access")?.value || "";
+	const raw = jar.get("whoop_access")?.value || "";
 	try {
-		return decodeURIComponent(the constRaw);
+		return decodeURIComponent(raw);
 	} catch {
-		return the constRaw;
+		return raw;
 	}
 }
 
