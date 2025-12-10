@@ -44,7 +44,8 @@ export async function GET(req: Request) {
 		const res = NextResponse.redirect(new URL("/?whoop=connected", url));
 		res.cookies.set("whoop_state", "", { path: "/", maxAge: 0 });
 		if (refreshToken) {
-			res.cookies.set("whoop_refresh", refreshToken, {
+			// Encode to ensure it is cookie-safe across all characters
+			res.cookies.set("whoop_refresh", encodeURIComponent(refreshToken), {
 				httpOnly: true,
 				secure: true,
 				path: "/",

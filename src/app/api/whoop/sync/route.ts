@@ -3,7 +3,12 @@ import { NextResponse } from "next/server";
 
 async function getRefreshToken() {
 	const cookieStore = await cookies();
-	return cookieStore.get("whoop_refresh")?.value || "";
+	const raw = cookieStore.get("whoop_refresh")?.value || "";
+	try {
+		return decodeURIComponent(raw);
+	} catch {
+		return raw;
+	}
 }
 
 async function refresh(refreshToken: string) {
