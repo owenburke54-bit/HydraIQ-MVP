@@ -71,7 +71,7 @@ export async function GET(req: Request) {
 	const start = `${date}T00:00:00.000Z`;
 	const end = `${date}T23:59:59.999Z`;
 	const fetchData = async () => {
-		const res = await fetch(`https://api.prod.whoop.com/developer/v1/activity?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`, {
+		const res = await fetch(`https://api.prod.whoop.com/developer/v1/activities?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`, {
 			headers: { Authorization: `Bearer ${accessToken}` },
 		});
 		return res;
