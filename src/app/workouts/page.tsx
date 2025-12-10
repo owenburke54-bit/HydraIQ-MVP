@@ -156,7 +156,7 @@ export default function WorkoutsPage() {
 												type: String(type),
 												start: new Date(start),
 												end: new Date(end),
-												intensity,
+												intensity: intensity ?? undefined,
 											});
 											count++;
 										} catch {}
