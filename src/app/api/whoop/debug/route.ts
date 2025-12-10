@@ -64,8 +64,8 @@ export async function GET(req: Request) {
 
 	const start = `${date}T00:00:00.000Z`;
 	const end = `${date}T23:59:59.999Z`;
-	// Use workouts endpoint
-	const endpoint = `https://api.prod.whoop.com/developer/v1/workouts?start=${encodeURIComponent(
+	// Use singular activity endpoint
+	const endpoint = `https://api.prod.whoop.com/developer/v1/activity?start=${encodeURIComponent(
 		start
 	)}&end=${encodeURIComponent(end)}`;
 

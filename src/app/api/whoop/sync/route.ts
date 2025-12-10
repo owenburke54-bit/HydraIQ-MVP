@@ -76,8 +76,8 @@ export async function GET(req: Request) {
 	const start = prev.toISOString().slice(0, 23) + "Z";
 	const end = new Date(next.getTime() + (24 * 60 * 60 * 1000 - 1)).toISOString().slice(0, 23) + "Z";
 	const fetchData = async () => {
-		// WHOOP: the correct endpoint for activity sessions is "workouts"
-		const res = await fetch(`https://api.prod.whoop.com/developer/v1/workouts?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`, {
+		// WHOOP: use singular "activity" endpoint
+		const res = await fetch(`https://api.prod.whoop.com/developer/v1/activity?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`, {
 			headers: { Authorization: `Bearer ${accessToken}` },
 		});
 		return res;
