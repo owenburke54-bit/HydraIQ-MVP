@@ -39,10 +39,25 @@ export async function GET(req: Request) {
 		}
 
 		const tokens = await tokenRes.json();
-		// Clear one-time state cookie and set tokens on the redirect response
+		const refreshToken = tokens?.refresh_token || "";
+		// Clear one-time state cookie and set a compact refresh cookie on the redirect response
 		const res = NextResponse.redirect(new URL("/?whoop=connected", url));
 		res.cookies.set("whoop_state", "", { path: "/", maxAge: 0 });
-		res.cookies.set("whoop_tokens", JSON.stringify(tokens), {
+		if (refreshToken) {
+			res.cookies.set("whoop_refresh", refreshToken, {
+				httpOnly: true,
+				secure: true,
+				path: "/",
+				maxAge: 60 * 60 * 24 * 30,
+				sameSite: "lax",
+			});
+		}
+		return res;
+	} catch (e) {
+		return NextResponse.redirect(home);
+	}
+}
+
 			httpOnly: true,
 			secure: true,
 			path: "/",
