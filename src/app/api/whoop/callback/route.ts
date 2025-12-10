@@ -41,6 +41,8 @@ export async function GET(req: Request) {
 
 		const tokens = await tokenRes.json();
 		const refreshToken = tokens?.refresh_token || "";
+		const accessToken = tokens?.access_token || "";
+		const expiresInSec = Number(tokens?.expires_in) || 1800; // default 30 minutes
 		// Clear one-time state cookie and set a compact refresh cookie on the redirect response
 		const res = NextResponse.redirect(new URL("/?whoop=connected", url));
 		res.cookies.set("whoop_state", "", { path: "/", maxAge: 0 });
@@ -51,6 +53,17 @@ export async function GET(req: Request) {
 				secure: true,
 				path: "/",
 				maxAge: 60 * 60 * 24 * 30,
+				sameSite: "lax",
+			});
+		}
+		// Fallback for apps that cannot request offline_access (no refresh token).
+		// Store short-lived access token so the next sync call can succeed immediately.
+		if (!refreshToken && accessToken) {
+			res.cookies.set("whoop_access", encodeURIComponent(accessToken), {
+				httpOnly: true,
+				secure: true,
+				path: "/",
+				maxAge: Math.max(300, Math.min(3600, expiresInSec)), // 5min–1h bounds
 				sameSite: "lax",
 			});
 		}

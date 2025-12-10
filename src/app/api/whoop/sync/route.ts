@@ -11,6 +11,16 @@ async function getRefreshToken() {
 	}
 }
 
+async function getAccessTokenFromCookie() {
+	const cookieStore = await cookies();
+	const raw = cookieStore.get("whoop_access")?.value || "";
+	try {
+		return decodeURIComponent(raw);
+	} catch {
+		return raw;
+	}
+}
+
 async function refresh(refreshToken: string) {
 	const res = await fetch("https://api.prod.whoop.com/oauth/oauth2/token", {
 		method: "POST",
@@ -30,14 +40,30 @@ export async function GET(req: Request) {
 	const url = new URL(req.url);
 	const date = url.searchParams.get("date");
 	if (!date) return NextResponse.json({ error: "date required (YYYY-MM-DD)" }, { status: 400 });
-	const refreshToken = await getRefreshToken();
-	if (!refreshToken) return NextResponse.json({ error: "Not connected. Call /api/whoop/connect" }, { status: 401 });
 
-	// Always fetch a fresh access token
-	const tokenPayload = await refresh(refreshToken);
-	if (!tokenPayload) return NextResponse.json({ error: "Failed to refresh" }, { status: 401 });
-	const accessToken = tokenPayload.access_token as string;
-	const nextRefresh = tokenPayload.refresh_token as string | undefined;
+	// Prefer refresh flow if available
+	const refreshToken = await getRefreshToken();
+	let accessToken: string | null = null;
+	let nextRefresh: string | undefined;
+	if (refreshToken) {
+		const tokenPayload = await refresh(refreshToken);
+		if (!tokenPayload) {
+			// Try access token cookie fallback
+			accessToken = (await getAccessTokenFromCookie()) || null;
+			if (!accessToken) {
+				return NextResponse.json({ error: "Failed to refresh" }, { status: 401 });
+			}
+		} else {
+			accessToken = tokenPayload.access_token as string;
+			nextRefresh = tokenPayload.refresh_token as string | undefined;
+		}
+	} else {
+		// No refresh token (offline_access not granted) – use short-lived access token set at callback
+		accessToken = (await getAccessTokenFromCookie()) || null;
+		if (!accessToken) {
+			return NextResponse.json({ error: "Not connected. Call /api/whoop/connect" }, { status: 401 });
+		}
+	}
 
 	const start = `${date}T00:00:00.000Z`;
 	const end = `${date}T23:59:59.999Z`;
