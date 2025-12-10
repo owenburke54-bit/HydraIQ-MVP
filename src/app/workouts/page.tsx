@@ -131,6 +131,45 @@ export default function WorkoutsPage() {
 
 			<div className="mt-6">
 				<h2 className="mb-2 text-lg font-semibold">Upcoming & recent</h2>
+				<div className="mb-3 flex gap-2">
+					<a href="/api/whoop/connect" className="rounded-xl border px-3 py-2 text-sm">Connect WHOOP</a>
+					<button
+						className="rounded-xl border px-3 py-2 text-sm"
+						onClick={async () => {
+							try {
+								const d = todayNYDate();
+								const res = await fetch(`/api/whoop/sync?date=${d}`);
+								const json = await res.json();
+								if (res.ok && Array.isArray(json.activities)) {
+									let count = 0;
+									for (const a of json.activities) {
+										try {
+											const start = a.start ?? a.start_time ?? a.created_at;
+											const end = a.end ?? a.end_time ?? start;
+											const type = a.sport || a.activity_type || "whoop";
+											const intensity = Math.max(1, Math.min(10, Math.round((a.score?.strain ?? 5))));
+											addWorkout({
+												type: String(type),
+												start: new Date(start),
+												end: new Date(end),
+												intensity,
+											});
+											count++;
+										} catch {}
+									}
+									alert(`Imported ${count} WHOOP activities`);
+									location.reload();
+								} else {
+									alert(json?.error ?? "WHOOP not connected");
+								}
+							} catch {
+								alert("Failed to import from WHOOP");
+							}
+						}}
+					>
+						Import WHOOP (today)
+					</button>
+				</div>
 				{todays.length === 0 ? (
 					<p className="text-sm text-zinc-600 dark:text-zinc-400">No workouts today.</p>
 				) : (
