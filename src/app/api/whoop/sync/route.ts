@@ -68,8 +68,13 @@ export async function GET(req: Request) {
 		}
 	}
 
-	const start = `${date}T00:00:00.000Z`;
-	const end = `${date}T23:59:59.999Z`;
+	// Build a slightly wider UTC window (prev day 00:00Z → next day 23:59Z) to avoid time zone misses.
+	// We'll filter to the requested New York date after fetching.
+	const base = new Date(`${date}T00:00:00.000Z`);
+	const prev = new Date(base.getTime() - 24 * 60 * 60 * 1000);
+	const next = new Date(base.getTime() + 24 * 60 * 60 * 1000);
+	const start = prev.toISOString().slice(0, 23) + "Z";
+	const end = new Date(next.getTime() + (24 * 60 * 60 * 1000 - 1)).toISOString().slice(0, 23) + "Z";
 	const fetchData = async () => {
 		const res = await fetch(`https://api.prod.whoop.com/developer/v1/activities?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`, {
 			headers: { Authorization: `Bearer ${accessToken}` },
@@ -101,8 +106,29 @@ export async function GET(req: Request) {
 
 	const data = await res.json();
 
+	// Filter activities to the exact New York day requested
+	const formatNYDate = (d: Date) => {
+		const parts = new Intl.DateTimeFormat("en-CA", {
+			timeZone: "America/New_York",
+			year: "numeric",
+			month: "2-digit",
+			day: "2-digit",
+		}).formatToParts(d);
+		const y = parts.find((p) => p.type === "year")?.value ?? "0000";
+		const m = parts.find((p) => p.type === "month")?.value ?? "01";
+		const dd = parts.find((p) => p.type === "day")?.value ?? "01";
+		return `${y}-${m}-${dd}`;
+	};
+
+	let filtered = Array.isArray(data) ? data.filter((a: any) => {
+		const s = a?.start ?? a?.start_time ?? a?.created_at;
+		if (!s) return false;
+		const dt = new Date(s);
+		return formatNYDate(dt) === date;
+	}) : [];
+
 	// Return data and update refresh cookie if it rotated
-	const out = NextResponse.json({ activities: data });
+	const out = NextResponse.json({ activities: filtered });
 	if (nextRefresh && nextRefresh !== refreshToken) {
 		out.cookies.set("whoop_refresh", nextRefresh, {
 			httpOnly: true,
