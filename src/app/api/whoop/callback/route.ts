@@ -5,7 +5,7 @@ export const runtime = "nodejs";
 
 export async function GET(req: Request) {
 	const url = new URL(req.url);
-	const code = url.query ? url.searchParams.get("code") : null;
+	const code = url.searchParams.get("code");
 	const home = new URL("/", url);
 	const jar = cookies();
 

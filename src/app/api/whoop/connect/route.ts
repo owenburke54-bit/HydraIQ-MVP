@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import crypto from "node:crypto";
 
+export const runtime = "nodejs";
+
 export async function GET() {
 	const clientId = process.env.WHOOP_CLIENT_ID!;
 	const redirectUri = process.env.WHOOP_REDIRECT_URI!;
