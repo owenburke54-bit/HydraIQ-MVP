@@ -66,7 +66,7 @@ export async function GET(req: Request) {
 	const end = `${date}T23:59:59.999Z`;
 	const endpointV2 = `https://api.prod.whoop.com/developer/v2/activity/workout?start=${encodeURIComponent(
 		start
-	)}&end=${encodeURIComponent(end)}&limit=200`;
+	)}&end=${encodeURIComponent(end)}&limit=25`;
 	const endpointV1 = `https://api.prod.whoop.com/developer/v1/activities?start=${encodeURIComponent(
 		start
 	)}&end=${encodeURIComponent(end)}`;

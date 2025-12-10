@@ -76,9 +76,10 @@ export async function GET(req: Request) {
 	const start = prev.toISOString().slice(0, 23) + "Z";
 	const end = new Date(next.getTime() + (24 * 60 * 60 * 1000 - 1)).toISOString().slice(0, 23) + "Z";
 	const fetchV2 = async () => {
+		// v2: limit must be <= 25
 		const url = `https://api.prod.whoop.com/developer/v2/activity/workout?start=${encodeURIComponent(
 			start
-		)}&end=${encodeURIComponent(end)}&limit=200`;
+		)}&end=${encodeURIComponent(end)}&limit=25`;
 		return fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
 	};
 	const fetchV1 = async () => {
@@ -129,12 +130,15 @@ export async function GET(req: Request) {
 		return `${y}-${m}-${dd}`;
 	};
 
-	let filtered = Array.isArray(data) ? data.filter((a: any) => {
+	// Support both v2 shape { records: [...] } and legacy array shapes
+	const rows: any[] = Array.isArray(data) ? data : Array.isArray((data as any)?.records) ? (data as any).records : [];
+
+	let filtered = rows.filter((a: any) => {
 		const s = a?.start ?? a?.start_time ?? a?.created_at;
 		if (!s) return false;
 		const dt = new Date(s);
 		return formatNYDate(dt) === date;
-	}) : [];
+	});
 
 	// Return data and update refresh cookie if it rotated
 	const out = NextResponse.json({ activities: filtered });
