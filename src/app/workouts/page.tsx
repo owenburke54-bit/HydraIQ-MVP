@@ -147,8 +147,11 @@ export default function WorkoutsPage() {
 										try {
 											const start = a.start ?? a.start_time ?? a.created_at;
 											const end = a.end ?? a.end_time ?? start;
-											const type = a.sport || a.activity_type || "whoop";
-											const intensity = Math.max(1, Math.min(10, Math.round((a.score?.strain ?? 5))));
+											const type = "WHOOP";
+											const strain = typeof a?.score?.strain === "number" ? a.score.strain : null;
+											const intensity = typeof strain === "number"
+												? Math.max(1, Math.min(10, Math.round(strain)))
+												: null;
 											addWorkout({
 												type: String(type),
 												start: new Date(start),
@@ -198,9 +201,13 @@ function ListEditable({ workouts }: { workouts: any[] }) {
 						{!isEditing ? (
 							<div className="flex items-center justify-between gap-2">
 								<div>
-									<div className="font-medium">{(w.type || "Workout")}</div>
+									<div className="font-medium">
+										{(String(w.type || "Workout").toLowerCase() === "whoop" ? "WHOOP" : String(w.type || "Workout"))}
+									</div>
 									<div className="text-zinc-600 dark:text-zinc-400">
-										{fmtTime(w.start_time)}{w.end_time ? `–${fmtTime(w.end_time)}` : ""} • Intensity {w.intensity ?? 5}
+										{fmtTime(w.start_time)}{w.end_time ? `–${fmtTime(w.end_time)}` : ""} • {String(w.type || "").toLowerCase() === "whoop"
+											? (typeof w.intensity === "number" ? `WHOOP strain ${w.intensity}` : "Recovery")
+											: `Intensity ${w.intensity ?? 5}`}
 									</div>
 								</div>
 								<div className="flex gap-2">
@@ -286,7 +293,7 @@ function ListEditable({ workouts }: { workouts: any[] }) {
 }
 
 function fmtTime(iso: string) {
-	return new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(iso));
+	return new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit", hour12: true }).format(new Date(iso));
 }
 
 
