@@ -5,8 +5,8 @@ import { Card } from "../../components/ui/Card";
 import RadialGauge from "../../components/charts/RadialGauge";
 import CalendarHeatmap from "../../components/charts/CalendarHeatmap";
 import Donut from "../../components/charts/Donut";
-import { calculateHydrationScore, WORKOUT_ML_PER_MIN } from "../../lib/hydration";
-import { getProfile, formatNYDate, getIntakesByDateNY, getWorkoutsByDateNY } from "../../lib/localStore";
+import { calculateHydrationScore, WORKOUT_ML_PER_MIN, BASE_ML_PER_KG } from "../../lib/hydration";
+import { getProfile, formatNYDate, getIntakesByDateNY, getWorkoutsByDateNY, getSupplementsByDateNY } from "../../lib/localStore";
 
 type DayPoint = { date: string; score: number; target: number; actual: number };
 
@@ -24,6 +24,37 @@ function lastNDatesNY(n: number): string[] {
 export default function InsightsPage() {
 	const [points, setPoints] = useState<DayPoint[]>([]);
 	const [mode, setMode] = useState<"today" | "history">("history");
+	const today = formatNYDate(new Date());
+
+	// Breakdown of today's target: base + workouts + creatine
+	const todayBreakdown = useMemo(() => {
+		const prof = getProfile();
+		const weight = prof?.weight_kg ?? 0;
+		if (weight <= 0) return null;
+		const workouts = getWorkoutsByDateNY(today);
+		const supplements = getSupplementsByDateNY(today);
+
+		const base = Math.round(weight * BASE_ML_PER_KG);
+		const workoutLines = workouts.map((w) => {
+			const start = new Date(w.start_time);
+			const end = w.end_time ? new Date(w.end_time) : start;
+			const mins = Math.max(0, Math.round((end.getTime() - start.getTime()) / 60000));
+			const intensity = typeof w.intensity === "number" ? w.intensity : 5;
+			const intensityFactor = 0.5 + intensity / 10;
+			const added = Math.round(mins * WORKOUT_ML_PER_MIN * intensityFactor);
+			const label = `${w.type || "Workout"} • ${mins} min`;
+			return { label, added };
+		});
+
+		const creatineMl = supplements
+			.filter((s) => s.type === "creatine" && s.grams && s.grams > 0)
+			.reduce((sum, s) => sum + (s.grams || 0) * 70, 0);
+
+		const lines: { label: string; added: number }[] = [{ label: "Base need", added: base }, ...workoutLines];
+		if (creatineMl > 0) lines.push({ label: "Creatine", added: Math.round(creatineMl) });
+		const total = lines.reduce((s, l) => s + l.added, 0);
+		return { lines, total };
+	}, []);
 
 	useEffect(() => {
 		const prof = getProfile();
@@ -164,6 +195,27 @@ export default function InsightsPage() {
 					</div>
 				</Card>
 			</section>
+
+			{/* Target drivers for Today */}
+			{mode === "today" && todayBreakdown ? (
+				<section className="mt-4">
+					<Card className="p-4">
+						<p className="mb-2 text-sm text-zinc-600 dark:text-zinc-400">Today's target drivers</p>
+						<ul className="space-y-1 text-sm">
+							{todayBreakdown.lines.map((l, i) => (
+								<li key={i} className="flex items-center justify-between">
+									<span>{l.label}</span>
+									<span className="tabular-nums">{l.added} ml</span>
+								</li>
+							))}
+						</ul>
+						<div className="mt-2 flex items-center justify-between border-t pt-2 text-sm">
+							<span className="font-medium">Total target</span>
+							<span className="tabular-nums font-medium">{todayBreakdown.total} ml</span>
+						</div>
+					</Card>
+				</section>
+			) : null}
 			{mode === "history" ? (
 			<section className="mt-4">
 				<Card className="p-4">

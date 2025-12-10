@@ -147,10 +147,11 @@ export default function WorkoutsPage() {
 										try {
 											const start = a.start ?? a.start_time ?? a.created_at;
 											const end = a.end ?? a.end_time ?? start;
-											const type = "WHOOP";
-											const strain = typeof a?.score?.strain === "number" ? a.score.strain : null;
+											const type = a?.sport_name ? `WHOOP • ${String(a.sport_name)}` : "WHOOP";
+											const strain = typeof a?.score?.strain === "number" ? Number(a.score.strain) : null;
+											// Preserve strain as a float (0–21), we'll format when rendering
 											const intensity = typeof strain === "number"
-												? Math.max(1, Math.min(10, Math.round(strain)))
+												? Math.max(0, Math.min(21, strain))
 												: null;
 											addWorkout({
 												type: String(type),
@@ -201,12 +202,10 @@ function ListEditable({ workouts }: { workouts: any[] }) {
 						{!isEditing ? (
 							<div className="flex items-center justify-between gap-2">
 								<div>
-									<div className="font-medium">
-										{(String(w.type || "Workout").toLowerCase() === "whoop" ? "WHOOP" : String(w.type || "Workout"))}
-									</div>
+									<div className="font-medium">{String(w.type || "Workout").replace(/^whoop/i, "WHOOP")}</div>
 									<div className="text-zinc-600 dark:text-zinc-400">
-										{fmtTime(w.start_time)}{w.end_time ? `–${fmtTime(w.end_time)}` : ""} • {String(w.type || "").toLowerCase() === "whoop"
-											? (typeof w.intensity === "number" ? `WHOOP strain ${w.intensity}` : "Recovery")
+										{fmtTime(w.start_time)}{w.end_time ? `–${fmtTime(w.end_time)}` : ""} • {/^whoop/i.test(String(w.type || ""))
+											? (typeof w.intensity === "number" ? `WHOOP Strain ${w.intensity.toFixed(1)}` : "Recovery")
 											: `Intensity ${w.intensity ?? 5}`}
 									</div>
 								</div>
