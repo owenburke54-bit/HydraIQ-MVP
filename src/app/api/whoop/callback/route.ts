@@ -1,10 +1,26 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
+
+export const runtime = "nodejs";
 
 export async function GET(req: Request) {
-	const { searchParams } = new URL(req.url);
-	const code = searchParams.get("code");
-	if (!code) return NextResponse.redirect("/");
+	const url = new URL(req.url);
+	const code = url.query ? url.searchParams.get("code") : null;
+	const home = new URL("/", url);
+	const jar = cookies();
+
+	// If missing or test/error, don’t try to exchange; just bounce back cleanly.
+	if (!code || code === "test" || url.searchParams.has("error")) {
+		return NextResponse.redirect(new URL("/?whoop=auth_error", url));
+	}
+
+	// Validate OAuth state to prevent CSRF
+	const returnedState = url.searchParams.get("state") || "";
+	const expectedState = jar.get("whoop_state")?.value || "";
+	if (!returnedState || returnedState.length < 8 || !expectedState || expectedState !== returnedState) {
+		return NextResponse.redirect(new URL("/?whoop=state_mismatch", url));
+	}
+
 	try {
 		const tokenRes = await fetch("https://api.prod.whoop.com/oauth/oauth2/token", {
 			method: "POST",
@@ -12,23 +28,31 @@ export async function GET(req: Request) {
 			body: new URLSearchParams({
 				grant_type: "authorization_code",
 				code,
-				redirect_uri: process.env.WHOOP_REDIRECT_URI!,
-				client_id: process.env.WHOOP_CLIENT_ID!,
-				client_secret: process.env.WHOOP_CLIENT_SECRET!,
+				redirect_uri: process.env.WHOOP_REDIRECT_URI || "",
+				client_id: process.env.WHOOP_CLIENT_ID || "",
+				client_secret: process.env.WHOOP_CLIENT_SECRET || "",
 			}),
 		});
-		if (!tokenRes.ok) return NextResponse.redirect("/");
+
+		if (!tokenRes.ok) {
+			return NextResponse.redirect(new URL("/?whoop=auth_error", url));
+		}
+
 		const tokens = await tokenRes.json();
-		const cookieStore = await cookies();
-		cookieStore.set("whoop_tokens", JSON.stringify(tokens), {
+		// Clear one-time state cookie and set tokens via cookies() in a Node route handler
+		jar.set("whoop_state", "", { path: "/", maxAge: 0 });
+		jar.set("whoop_tokens", JSON.stringify(tokens), {
 			httpOnly: true,
 			secure: true,
 			path: "/",
 			maxAge: 60 * 60 * 24 * 30,
 			sameSite: "lax",
 		});
-	} catch {}
-	return NextResponse.redirect("/");
+
+		return NextResponse.redirect(new URL("/?whoop=connected", url));
+	} catch (e) {
+		return NextResponse.redirect(home);
+	}
 }
 
 
