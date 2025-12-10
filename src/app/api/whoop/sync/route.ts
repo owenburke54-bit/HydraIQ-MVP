@@ -75,14 +75,22 @@ export async function GET(req: Request) {
 	const next = new Date(base.getTime() + 24 * 60 * 60 * 1000);
 	const start = prev.toISOString().slice(0, 23) + "Z";
 	const end = new Date(next.getTime() + (24 * 60 * 60 * 1000 - 1)).toISOString().slice(0, 23) + "Z";
-	const fetchData = async () => {
-		// WHOOP: use singular "activity" endpoint
-		const res = await fetch(`https://api.prod.whoop.com/developer/v1/activity?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`, {
-			headers: { Authorization: `Bearer ${accessToken}` },
-		});
-		return res;
+	const fetchV2 = async () => {
+		const url = `https://api.prod.whoop.com/developer/v2/activity/workout?start=${encodeURIComponent(
+			start
+		)}&end=${encodeURIComponent(end)}&limit=200`;
+		return fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
 	};
-	const res = await fetchData();
+	const fetchV1 = async () => {
+		const url = `https://api.prod.whoop.com/developer/v1/activities?start=${encodeURIComponent(
+			start
+		)}&end=${encodeURIComponent(end)}`;
+		return fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+	};
+
+	// Try v2 first; fall back to v1 if endpoint not found
+	let res = await fetchV2();
+	if (res.status === 404) res = await fetchV1();
 	// Gracefully treat "no content" or "not found" as zero activities
 	if (res.status === 204 || res.status === 404) {
 		return NextResponse.json({ activities: [] }, { status: 200 });

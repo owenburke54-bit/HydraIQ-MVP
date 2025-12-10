@@ -64,28 +64,33 @@ export async function GET(req: Request) {
 
 	const start = `${date}T00:00:00.000Z`;
 	const end = `${date}T23:59:59.999Z`;
-	// Use singular activity endpoint
-	const endpoint = `https://api.prod.whoop.com/developer/v1/activity?start=${encodeURIComponent(
+	const endpointV2 = `https://api.prod.whoop.com/developer/v2/activity/workout?start=${encodeURIComponent(
+		start
+	)}&end=${encodeURIComponent(end)}&limit=200`;
+	const endpointV1 = `https://api.prod.whoop.com/developer/v1/activities?start=${encodeURIComponent(
 		start
 	)}&end=${encodeURIComponent(end)}`;
 
-	const res = await fetch(endpoint, {
-		headers: { Authorization: `Bearer ${accessToken}` },
+	const resV2 = await fetch(endpointV2, { headers: { Authorization: `Bearer ${accessToken}` } });
+	let bodyV2 = "";
+	try { bodyV2 = await resV2.text(); } catch {}
+
+	let resV1Status = null;
+	let resV1Ok = null;
+	let bodyV1 = "";
+	if (resV2.status === 404) {
+		const resV1 = await fetch(endpointV1, { headers: { Authorization: `Bearer ${accessToken}` } });
+		resV1Status = resV1.status;
+		resV1Ok = resV1.ok;
+		try { bodyV1 = await resV1.text(); } catch {}
+	}
+
+	return NextResponse.json({
+		request: { start, end, endpointV2, endpointV1 },
+		auth: { used, hasRefresh: Boolean(refreshToken) },
+		whoopV2: { status: resV2.status, ok: resV2.ok, body: bodyV2 },
+		whoopV1: resV1Status ? { status: resV1Status, ok: resV1Ok, body: bodyV1 } : null,
 	});
-
-	let bodyText = "";
-	try {
-		bodyText = await res.text();
-	} catch {}
-
-	return NextResponse.json(
-		{
-			request: { start, end, endpoint },
-			auth: { used, hasRefresh: Boolean(refreshToken) },
-			whoop: { status: res.status, ok: res.ok, body: bodyText },
-		},
-		{ status: 200 }
-	);
 }
 
 
