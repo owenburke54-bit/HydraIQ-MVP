@@ -6,7 +6,7 @@ import HydrationScoreCard from "../components/HydrationScoreCard";
 import HydrationProgressBar from "../components/HydrationProgressBar";
 import { Card } from "../components/ui/Card";
 import { useEffect, useState } from "react";
-import { getIntakesByDateNY, getProfile, todayNYDate, getIntakesForHome, getWorkoutsByDateNY, lastNDatesNY, hasCreatineOnDateNY } from "../lib/localStore";
+import { getIntakesByDateNY, getProfile, todayNYDate, getIntakesForHome, getWorkoutsByDateNY, lastNDatesNY, hasCreatineOnDateNY, getSupplementsByDateNY } from "../lib/localStore";
 import { calculateHydrationScore, WORKOUT_ML_PER_MIN } from "../lib/hydration";
 
 export default function Home() {
@@ -43,8 +43,14 @@ export default function Home() {
 		// Remove historical carryover so Home matches Insights "Today" target exactly
 		const carryover = 0;
 
+		// Creatine adjustment (70 ml per gram) – match Insights
+		const supplements = getSupplementsByDateNY(today);
+		const creatineMl = supplements
+			.filter((s) => s.type === "creatine" && s.grams && s.grams > 0)
+			.reduce((sum, s) => sum + (s.grams || 0) * 70, 0);
+
 		// WHOOP modifiers (sleep & recovery)
-		let target = Math.round(base + workoutAdjustment + carryover);
+		let target = Math.round(base + workoutAdjustment + creatineMl + carryover);
 		(async () => {
 			try {
 				const res = await fetch(`/api/whoop/metrics?date=${today}`, { credentials: "include" });
