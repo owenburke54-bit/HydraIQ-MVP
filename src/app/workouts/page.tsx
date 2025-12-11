@@ -148,7 +148,7 @@ export default function WorkoutsPage() {
 										try {
 											const start = a.start ?? a.start_time ?? a.created_at;
 											const end = a.end ?? a.end_time ?? start;
-											const type = a?.sport_name ? `WHOOP • ${String(a.sport_name)}` : "WHOOP";
+											const type = a?.sport_name ? `WHOOP • ${toTitleCase(String(a.sport_name))}` : "WHOOP";
 											const strain = typeof a?.score?.strain === "number" ? Number(a.score.strain) : null;
 											// Preserve strain as a float (0–21), we'll format when rendering
 											const intensity = typeof strain === "number"
@@ -294,6 +294,10 @@ function ListEditable({ workouts }: { workouts: any[] }) {
 
 function fmtTime(iso: string) {
 	return new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit", hour12: true }).format(new Date(iso));
+}
+
+function toTitleCase(s: string) {
+	return s.replace(/\w\S*/g, (t) => t.charAt(0).toUpperCase() + t.slice(1).toLowerCase());
 }
 
 

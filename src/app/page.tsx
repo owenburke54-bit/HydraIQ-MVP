@@ -6,7 +6,7 @@ import HydrationScoreCard from "../components/HydrationScoreCard";
 import HydrationProgressBar from "../components/HydrationProgressBar";
 import { Card } from "../components/ui/Card";
 import { useEffect, useState } from "react";
-import { getIntakesByDateNY, getProfile, todayNYDate, getIntakesForHome, getWorkoutsByDateNY, lastNDatesNY, hasCreatineOnDateNY } from "../lib/localStore";
+import { getIntakesByDateNY, getProfile, todayNYDate, getIntakesForHome, getWorkoutsByDateNY, lastNDatesNY } from "../lib/localStore";
 import { calculateHydrationScore, WORKOUT_ML_PER_MIN } from "../lib/hydration";
 
 export default function Home() {
@@ -29,14 +29,14 @@ export default function Home() {
 			return;
 		}
 		const weight = profile.weight_kg ?? 0;
-		// Base target + workout adjustment
+		// Base target + workout adjustment (strain-aware)
 		const base = weight > 0 ? weight * 35 : 0;
 		const workoutAdjustment = workouts.reduce((sum, w) => {
 			const start = new Date(w.start_time);
 			const end = w.end_time ? new Date(w.end_time) : start;
 			const durationMin = Math.max(0, Math.round((end.getTime() - start.getTime()) / 60000));
-			const intensity = typeof w.intensity === "number" ? w.intensity : 5;
-			const intensityFactor = 0.5 + intensity / 10; // 0.6–1.5x
+			const strain = typeof w.intensity === "number" ? Math.max(0, Math.min(21, w.intensity)) : 5;
+			const intensityFactor = 0.5 + strain / 21; // ~0.5–1.5x
 			return sum + durationMin * WORKOUT_ML_PER_MIN * intensityFactor;
 		}, 0);
 
@@ -53,8 +53,8 @@ export default function Home() {
 				const s = new Date(w.start_time);
 				const e = w.end_time ? new Date(w.end_time) : s;
 				const mins = Math.max(0, Math.round((e.getTime() - s.getTime()) / 60000));
-				const intens = typeof w.intensity === "number" ? w.intensity : 5;
-				const f = 0.5 + intens / 10;
+				const strain = typeof w.intensity === "number" ? Math.max(0, Math.min(21, w.intensity)) : 5;
+				const f = 0.5 + strain / 21;
 				return sum + mins * WORKOUT_ML_PER_MIN * f;
 			}, 0);
 			const prevTarget = Math.round((weight > 0 ? weight * 35 : 0) + prevWorkoutAdj);
@@ -63,17 +63,38 @@ export default function Home() {
 			else carryover += diff * (surplusWeights[idx] ?? 0); // diff negative, subtract smaller portion
 		});
 
-		const target = Math.round(base + workoutAdjustment + carryover);
-		const score =
-			target > 0
-				? calculateHydrationScore({
-						targetMl: target,
-						actualMl: actual,
-						intakes: intakes.map((i) => ({ timestamp: new Date(i.timestamp), volumeMl: i.volume_ml })),
-						workouts: [],
-				  })
-				: 0;
-		setState({ target, actual, score, intakes });
+		// WHOOP modifiers (sleep & recovery)
+		let target = Math.round(base + workoutAdjustment + carryover);
+		(async () => {
+			try {
+				const res = await fetch(`/api/whoop/metrics?date=${today}`, { credentials: "include" });
+				if (res.ok) {
+					const j = await res.json();
+					let modPct = 0;
+					if (typeof j.sleep_hours === "number") {
+						const h = j.sleep_hours;
+						if (h < 7.5) modPct += Math.max(0, (7.5 - h)) * 0.03;
+						else if (h > 8.5) modPct -= Math.max(0, (h - 8.5)) * 0.02;
+					}
+					if (typeof j.recovery_score === "number") {
+						const r = j.recovery_score;
+						if (r < 33) modPct += 0.05;
+						else if (r < 66) modPct += 0.02;
+					}
+					target = Math.round(target * (1 + modPct));
+				}
+			} catch {}
+			const score =
+				target > 0
+					? calculateHydrationScore({
+							targetMl: target,
+							actualMl: actual,
+							intakes: intakes.map((i) => ({ timestamp: new Date(i.timestamp), volumeMl: i.volume_ml })),
+							workouts: [],
+					  })
+					: 0;
+			setState({ target, actual, score, intakes });
+		})();
 	}, []);
 
 	return (

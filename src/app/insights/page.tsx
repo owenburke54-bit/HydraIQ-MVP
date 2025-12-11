@@ -53,10 +53,10 @@ export default function InsightsPage() {
 			const start = new Date(w.start_time);
 			const end = w.end_time ? new Date(w.end_time) : start;
 			const mins = Math.max(0, Math.round((end.getTime() - start.getTime()) / 60000));
-			const intensity = typeof w.intensity === "number" ? w.intensity : 5;
-			const intensityFactor = 0.5 + intensity / 10;
+			const strain = typeof w.intensity === "number" ? Math.max(0, Math.min(21, w.intensity)) : 5;
+			const intensityFactor = 0.5 + strain / 21;
 			const added = Math.round(mins * WORKOUT_ML_PER_MIN * intensityFactor);
-			const label = `${w.type || "Workout"} • ${mins} min`;
+			const label = `${formatType(w.type)} • ${mins} min`;
 			return { label, added };
 		});
 
@@ -227,13 +227,13 @@ export default function InsightsPage() {
 							{todayBreakdown.lines.map((l, i) => (
 								<li key={i} className="flex items-center justify-between">
 									<span>{l.label}</span>
-									<span className="tabular-nums">{l.added} ml</span>
+									<span className="tabular-nums">{Math.round(l.added / 29.5735)} oz</span>
 								</li>
 							))}
 						</ul>
 						<div className="mt-2 flex items-center justify-between border-t pt-2 text-sm">
 							<span className="font-medium">Total target</span>
-							<span className="tabular-nums font-medium">{todayBreakdown.total} ml</span>
+							<span className="tabular-nums font-medium">{Math.round(todayBreakdown.total / 29.5735)} oz</span>
 						</div>
 					</Card>
 				</section>
@@ -379,6 +379,21 @@ function StackedBars({ points }: { points: DayPoint[] }) {
 			})}
 		</svg>
 	);
+}
+
+function formatType(t?: string | null) {
+	if (!t) return "Workout";
+	const s = String(t);
+	if (/^whoop/i.test(s)) {
+		// WHOOP • sport
+		const parts = s.split("•");
+		if (parts.length >= 2) {
+			const sport = parts.slice(1).join("•").trim();
+			return `WHOOP • ${sport.replace(/\w\S*/g, (x) => x.charAt(0).toUpperCase() + x.slice(1).toLowerCase())}`;
+		}
+		return "WHOOP";
+	}
+	return s.replace(/\w\S*/g, (x) => x.charAt(0).toUpperCase() + x.slice(1).toLowerCase());
 }
 
 function TodayChart({ todayPoint }: { todayPoint: DayPoint | null }) {
