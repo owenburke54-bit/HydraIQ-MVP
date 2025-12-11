@@ -40,28 +40,8 @@ export default function Home() {
 			return sum + durationMin * WORKOUT_ML_PER_MIN * intensityFactor;
 		}, 0);
 
-		// Carryover from previous days: add part of deficit, subtract part of surplus
-		const prevDates = lastNDatesNY(3); // yesterday, 2d, 3d ago
-		const deficitWeights = [0.3, 0.2, 0.1];
-		const surplusWeights = [0.1, 0.05, 0.02];
-		let carryover = 0;
-		prevDates.forEach((d, idx) => {
-			const prevIntakes = getIntakesByDateNY(d);
-			const prevActual = prevIntakes.reduce((s, i) => s + i.volume_ml, 0);
-			const prevWorkouts = getWorkoutsByDateNY(d);
-			const prevWorkoutAdj = prevWorkouts.reduce((sum, w) => {
-				const s = new Date(w.start_time);
-				const e = w.end_time ? new Date(w.end_time) : s;
-				const mins = Math.max(0, Math.round((e.getTime() - s.getTime()) / 60000));
-				const strain = typeof w.intensity === "number" ? Math.max(0, Math.min(21, w.intensity)) : 5;
-				const f = 0.5 + strain / 21;
-				return sum + mins * WORKOUT_ML_PER_MIN * f;
-			}, 0);
-			const prevTarget = Math.round((weight > 0 ? weight * 35 : 0) + prevWorkoutAdj);
-			const diff = prevTarget - prevActual; // positive = deficit
-			if (diff > 0) carryover += diff * (deficitWeights[idx] ?? 0);
-			else carryover += diff * (surplusWeights[idx] ?? 0); // diff negative, subtract smaller portion
-		});
+		// Remove historical carryover so Home matches Insights "Today" target exactly
+		const carryover = 0;
 
 		// WHOOP modifiers (sleep & recovery)
 		let target = Math.round(base + workoutAdjustment + carryover);
