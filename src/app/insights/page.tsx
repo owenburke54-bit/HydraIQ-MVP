@@ -358,26 +358,68 @@ function StackedBars({ points }: { points: DayPoint[] }) {
 		return { date: p.date.slice(5), m: m / total, a: a / total, e: e / total };
 	});
 
-	const w = 320, h = 100, pad = 16;
+	const w = 340, h = 140, pad = 16, axisH = 18;
+	const barAreaH = h - pad * 2 - axisH;
 	const barW = (w - pad * 2) / Math.max(1, rows.length);
 
 	return (
-		<svg viewBox={`0 0 ${w} ${h}`} className="mt-3 h-28 w-full">
-			{rows.map((r, i) => {
-				const x = pad + i * barW;
-				const mH = r.m * (h - pad * 2);
-				const aH = r.a * (h - pad * 2);
-				const eH = r.e * (h - pad * 2);
-				let y = h - pad;
-				return (
-					<g key={i}>
-						<rect x={x + 2} y={(y -= mH)} width={barW - 4} height={mH} fill="#60a5fa" />
-						<rect x={x + 2} y={(y -= aH)} width={barW - 4} height={aH} fill="#34d399" />
-						<rect x={x + 2} y={(y -= eH)} width={barW - 4} height={eH} fill="#fbbf24" />
-					</g>
-				);
-			})}
-		</svg>
+		<div className="mt-3">
+			<svg viewBox={`0 0 ${w} ${h}`} className="h-36 w-full">
+				{rows.map((r, i) => {
+					const x = pad + i * barW;
+					const mH = r.m * barAreaH;
+					const aH = r.a * barAreaH;
+					const eH = r.e * barAreaH;
+					let y = h - pad - axisH;
+					const cx = x + (barW - 4) / 2;
+					return (
+						<g key={i}>
+							{/* Morning */}
+							<rect x={x + 2} y={(y -= mH)} width={barW - 4} height={mH} fill="#60a5fa" rx="2" />
+							{mH >= 14 && (
+								<text x={cx} y={y + mH / 2 + 4} textAnchor="middle" fontSize="9" fill="#0b1324">
+									{Math.round(r.m * 100)}%
+								</text>
+							)}
+							{/* Afternoon */}
+							<rect x={x + 2} y={(y -= aH)} width={barW - 4} height={aH} fill="#34d399" rx="2" />
+							{aH >= 14 && (
+								<text x={cx} y={y + aH / 2 + 4} textAnchor="middle" fontSize="9" fill="#0b1324">
+									{Math.round(r.a * 100)}%
+								</text>
+							)}
+							{/* Evening */}
+							<rect x={x + 2} y={(y -= eH)} width={barW - 4} height={eH} fill="#fbbf24" rx="2" />
+							{eH >= 14 && (
+								<text x={cx} y={y + eH / 2 + 4} textAnchor="middle" fontSize="9" fill="#0b1324">
+									{Math.round(r.e * 100)}%
+								</text>
+							)}
+
+							{/* X-axis label (MM-DD) */}
+							<text x={cx} y={h - pad + 12} textAnchor="middle" fontSize="10" fill="#6b7280">
+								{r.date}
+							</text>
+						</g>
+					);
+				})}
+			</svg>
+			{/* Legend */}
+			<div className="mt-2 flex items-center gap-4 text-xs text-zinc-600 dark:text-zinc-400">
+				<span className="inline-flex items-center gap-1">
+					<span className="inline-block h-2 w-3 rounded-sm" style={{ background: "#60a5fa" }} />
+					Morning
+				</span>
+				<span className="inline-flex items-center gap-1">
+					<span className="inline-block h-2 w-3 rounded-sm" style={{ background: "#34d399" }} />
+					Afternoon
+				</span>
+				<span className="inline-flex items-center gap-1">
+					<span className="inline-block h-2 w-3 rounded-sm" style={{ background: "#fbbf24" }} />
+					Evening
+				</span>
+			</div>
+		</div>
 	);
 }
 
