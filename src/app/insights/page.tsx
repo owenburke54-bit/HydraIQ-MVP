@@ -6,7 +6,7 @@ import RadialGauge from "../../components/charts/RadialGauge";
 import CalendarHeatmap from "../../components/charts/CalendarHeatmap";
 import Donut from "../../components/charts/Donut";
 import { calculateHydrationScore, WORKOUT_ML_PER_MIN, BASE_ML_PER_KG } from "../../lib/hydration";
-import { getProfile, formatNYDate, getIntakesByDateNY, getWorkoutsByDateNY, getSupplementsByDateNY, getWhoopMetrics, setWhoopMetrics, getEnvironmentAdjustmentMl } from "../../lib/localStore";
+import { getProfile, formatNYDate, getIntakesByDateNY, getWorkoutsByDateNY, getSupplementsByDateNY, getWhoopMetrics, setWhoopMetrics } from "../../lib/localStore";
 
 type DayPoint = { date: string; score: number; target: number; actual: number };
 
@@ -77,8 +77,8 @@ export default function InsightsPage() {
 			const creatine = supps
 				.filter((s) => s.type === "creatine" && s.grams && s.grams > 0)
 				.reduce((sum, s) => sum + (s.grams || 0) * 70, 0);
-			const env = getEnvironmentAdjustmentMl();
-			const baseTarget = base + workout + creatine + env;
+			const env = 0;
+			const baseTarget = base + workout + creatine;
 			const m = getWhoopMetrics(d);
 			const sPct = sleepPct(m?.sleep_hours ?? null);
 			const rPct = recPct(m?.recovery_score ?? null);

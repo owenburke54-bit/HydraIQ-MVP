@@ -262,8 +262,7 @@ export function recomputeSummary(dateNY: string) {
 		if (s.type === "creatine" && s.grams && s.grams > 0) return sum + s.grams * 70;
 		return sum;
 	}, 0);
-	const envAdj = getEnvironmentAdjustmentMl();
-	const target = Math.round((weight > 0 ? weight * 35 : 0) + workoutAdj + suppAdj + envAdj);
+	const target = Math.round((weight > 0 ? weight * 35 : 0) + workoutAdj + suppAdj);
 	const map = readJSON<Record<string, Summary>>("hydra.summaries", {});
 	map[dateNY] = { date: dateNY, target_ml: target, actual_ml: actual };
 	writeJSON("hydra.summaries", map);
@@ -274,12 +273,8 @@ export function getSummaryByDate(dateNY: string): Summary | null {
 	return map[dateNY] ?? null;
 }
 
-export function getEnvironmentAdjustmentMl(): number {
-	const env = getSettings().environment ?? "normal";
-	if (env === "warm") return 200;
-	if (env === "hot") return 400;
-	return 0;
-}
+// Environment adjustment disabled – return 0 to avoid discrepancies
+export function getEnvironmentAdjustmentMl(): number { return 0; }
 
 // WHOOP metrics cache (per NY date)
 type WhoopMetrics = { sleep_hours: number | null; recovery_score: number | null; fetched_at: string };

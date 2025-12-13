@@ -6,7 +6,7 @@ import HydrationScoreCard from "../components/HydrationScoreCard";
 import HydrationProgressBar from "../components/HydrationProgressBar";
 import { Card } from "../components/ui/Card";
 import { useEffect, useState } from "react";
-import { getIntakesByDateNY, getProfile, todayNYDate, getIntakesForHome, getWorkoutsByDateNY, lastNDatesNY, hasCreatineOnDateNY, getSupplementsByDateNY, getWhoopMetrics, setWhoopMetrics, getEnvironmentAdjustmentMl } from "../lib/localStore";
+import { getIntakesByDateNY, getProfile, todayNYDate, getIntakesForHome, getWorkoutsByDateNY, lastNDatesNY, hasCreatineOnDateNY, getSupplementsByDateNY, getWhoopMetrics, setWhoopMetrics } from "../lib/localStore";
 import { calculateHydrationScore, WORKOUT_ML_PER_MIN } from "../lib/hydration";
 
 export default function Home() {
@@ -61,11 +61,8 @@ export default function Home() {
 			.filter((s) => s.type === "creatine" && s.grams && s.grams > 0)
 			.reduce((sum, s) => sum + (s.grams || 0) * 70, 0);
 
-		// Environment
-		const envAdj = getEnvironmentAdjustmentMl();
-
 		// WHOOP modifiers (sleep & recovery)
-		let target = Math.round(base + workoutAdjustment + creatineMl + carryover + envAdj);
+		let target = Math.round(base + workoutAdjustment + creatineMl + carryover);
 		let usedWhoop = false;
 		(async () => {
 			try {
@@ -109,7 +106,7 @@ export default function Home() {
 				flags: {
 					workouts: workouts.length > 0,
 					creatine: creatineMl > 0,
-					env: envAdj > 0,
+					env: false,
 					whoop: usedWhoop,
 				},
 			});
