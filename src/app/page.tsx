@@ -31,7 +31,13 @@ export default function Home() {
 		const workouts = getWorkoutsByDateNY(today);
 		const actual = intakes.reduce((s, i) => s + i.volume_ml, 0);
 		if (!profile) {
-			setState({ target: 0, actual, score: 0, intakes });
+			setState({
+				target: 0,
+				actual,
+				score: 0,
+				intakes,
+				flags: { workouts: workouts.length > 0, creatine: false, env: false, whoop: false },
+			});
 			return;
 		}
 		const weight = profile.weight_kg ?? 0;
