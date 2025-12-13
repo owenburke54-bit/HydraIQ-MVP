@@ -23,7 +23,8 @@ function lastNDatesNY(n: number): string[] {
 
 export default function InsightsPage() {
 	const [points, setPoints] = useState<DayPoint[]>([]);
-	const [mode, setMode] = useState<"today" | "history">("history");
+	// Only show "Today" view; keep state for future but default to 'today'
+	const [mode, setMode] = useState<"today" | "history">("today");
 	const today = formatNYDate(new Date());
 	const [whoop, setWhoop] = useState<{ sleepHours: number | null; recovery: number | null } | null>(null);
 
@@ -289,19 +290,11 @@ export default function InsightsPage() {
 				);
 			})()}
 
-			<div className="mt-3 flex gap-2">
-				<button
-					className={`rounded-xl border px-3 py-2 text-sm ${mode === "history" ? "border-blue-600 bg-blue-50 text-blue-700" : ""}`}
-					onClick={() => setMode("history")}
-				>
-					Last 14 days
-				</button>
-				<button
-					className={`rounded-xl border px-3 py-2 text-sm ${mode === "today" ? "border-blue-600 bg-blue-50 text-blue-700" : ""}`}
-					onClick={() => setMode("today")}
-				>
+			{/* Only keep a single Today tab for clarity */}
+			<div className="mt-3">
+				<span className="inline-flex items-center rounded-xl border px-3 py-2 text-sm border-blue-600 bg-blue-50 text-blue-700">
 					Today
-				</button>
+				</span>
 			</div>
 
 			{/* Today gauge */}
@@ -384,30 +377,7 @@ export default function InsightsPage() {
 				</section>
 			)}
 
-			{/* Contributors: Today vs 7-day avg */}
-			{contrib ? (
-				<section className="mt-4">
-					<Card className="p-4">
-						<p className="mb-2 text-sm text-zinc-600 dark:text-zinc-400">Contributors (oz): Today</p>
-						<ul className="space-y-1 text-sm">
-							{[
-								{ label: "Base need", v: contrib.today.base },
-								{ label: "Workouts", v: contrib.today.workout },
-								{ label: "Creatine", v: contrib.today.creatine },
-								{ label: "Environment", v: contrib.today.env },
-								{ label: "Sleep modifier", v: contrib.today.sleepAdd },
-								{ label: "Recovery modifier", v: contrib.today.recAdd },
-								{ label: "Total target", v: contrib.today.total },
-							].map((row, i) => (
-								<li key={i} className="flex items-center justify-between">
-									<span>{row.label}</span>
-									<span className="tabular-nums">{Math.round((row as any).v / 29.5735)} oz</span>
-								</li>
-							))}
-						</ul>
-					</Card>
-				</section>
-			) : null}
+			{/* Removed Contributors card to reduce redundancy with "Today's target drivers" */}
 
 			{/* Time-of-day stacked bars (7d) */}
 			<section className="mt-4">

@@ -122,7 +122,7 @@ export default function Home() {
 			<HydrationProgressBar actualMl={state.actual} targetMl={state.target} />
 
 			<Card className="mb-4 border-blue-100 bg-blue-50 p-4 text-blue-900 shadow-sm dark:border-blue-900/40 dark:bg-blue-950 dark:text-blue-200">
-				<p className="text-sm font-medium">Next recommendation</p>
+				<p className="text-sm font-weight-semibold">Recommendations:</p>
 				{(() => {
 					const flags = state.flags || { workouts: false, creatine: false, env: false, whoop: false };
 					const deficitMl = Math.max(0, state.target - state.actual);
@@ -148,17 +148,16 @@ export default function Home() {
 								<p>Nice work — you’re on target. Keep sipping water with meals.</p>
 							)}
 							<p className="mt-1 text-xs opacity-80">Tip: small sips every ~20–30 min are easier than big chugs.</p>
-							{/* breakdown (client-only to avoid SSR mismatch) */}
+							{/* breakdown (client-only to avoid SSR mismatch); bulletless, cleaner layout */}
 							{mounted ? (
-								<div className="mt-2 rounded-lg border border-blue-200/60 bg-white/70 p-2 text-xs text-blue-900 dark:border-blue-900/40 dark:bg-blue-950/40 dark:text-blue-200">
-									<p className="font-medium">Today’s target includes:</p>
-									<ul className="mt-1 list-disc pl-4">
-										<li>Base need from weight</li>
-										{flags.workouts ? <li>Workouts adjustment</li> : null}
-										{flags.creatine ? <li>Creatine</li> : null}
-										{flags.env ? <li>Environment</li> : null}
-										{flags.whoop ? <li>Sleep/Recovery modifiers (WHOOP)</li> : null}
-									</ul>
+								<div className="mt-2 rounded-lg border border-blue-200/60 bg-white/70 p-3 text-xs text-blue-900 dark:border-blue-900/40 dark:bg-blue-950/40 dark:text-blue-200">
+									<p className="font-medium mb-1">Today’s target includes</p>
+									<div className="space-y-1">
+										<div>Base need from weight</div>
+										{flags.workouts ? <div>Workouts adjustment</div> : null}
+										{flags.creatine ? <div>Creatine</div> : null}
+										{flags.whoop ? <div>Sleep/Recovery modifiers (WHOOP)</div> : null}
+									</div>
 								</div>
 							) : null}
 						</div>
@@ -181,16 +180,16 @@ export default function Home() {
 							const d = new Date(i.timestamp);
 							const nf = new Intl.DateTimeFormat("en-US", {
 								timeZone: "America/New_York",
-								hour: "2-digit",
+								hour: "numeric",
 								minute: "2-digit",
-								hour12: false,
+								hour12: true,
 							});
-							const hhmm = nf.format(d);
+							const hhmm = nf.format(d).toLowerCase();
 							return (
-								<li key={i.id} className="flex items-center justify-between p-3 text-sm">
-									<span className="text-zinc-600 dark:text-zinc-300">{hhmm}</span>
-									<span className="font-medium">{Math.round(i.volume_ml / 29.5735)} oz</span>
-									<span className="text-zinc-600 capitalize dark:text-zinc-300">{i.type}</span>
+								<li key={i.id} className="grid grid-cols-[72px,1fr,96px] items-center p-3 text-sm">
+									<div className="text-zinc-600 dark:text-zinc-300">{hhmm}</div>
+									<div className="text-right font-medium">{Math.round(i.volume_ml / 29.5735)} oz</div>
+									<div className="text-right text-zinc-600 capitalize dark:text-zinc-300">{i.type}</div>
 								</li>
 							);
 						})}
