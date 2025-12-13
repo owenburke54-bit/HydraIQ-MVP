@@ -1,10 +1,10 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from "react";
 import { getProfile, saveProfile } from "../../lib/localStore";
 
 type Units = "metric" | "imperial";
-type Sex = "male" | "female" | "other";
+ type Sex = "male" | "female" | "other";
 
 export default function ProfilePage() {
 	const [name, setName] = useState<string>("");
@@ -17,6 +17,7 @@ export default function ProfilePage() {
 	const [message, setMessage] = useState<string | null>(null);
 	const [useEst, setUseEst] = useState<boolean>(true);
 	const [unitsPref, setUnitsPref] = useState<"oz" | "ml">("oz");
+	const [environment, setEnvironment] = useState<"normal" | "warm" | "hot">("normal");
 
 	useEffect(() => {
 		(async () => {
@@ -46,6 +47,7 @@ export default function ProfilePage() {
 				const s = JSON.parse(localStorage.getItem("hydra.settings") || "{}");
 				if (s?.timezone === "auto") setUseEst(false);
 				if (s?.units === "ml") setUnitsPref("ml");
+				if (s?.environment === "warm" || s?.environment === "hot") setEnvironment(s.environment);
 			} catch {}
 		})();
 	}, []);
@@ -145,6 +147,14 @@ export default function ProfilePage() {
 							<option value="ml">Metric (ml)</option>
 						</select>
 					</div>
+					<div className="flex items-center justify-between py-1 text-sm">
+						<span>Environment</span>
+						<select value={environment} onChange={(e) => setEnvironment(e.target.value as any)} className="rounded border px-2 py-1">
+							<option value="normal">Normal</option>
+							<option value="warm">Warm</option>
+							<option value="hot">Hot</option>
+						</select>
+					</div>
 					<div className="mt-2 flex gap-2">
 						<button
 							type="button"
@@ -232,7 +242,7 @@ export default function ProfilePage() {
 							}
 							saveProfile({ name, sex, height_cm, weight_kg, units });
 							// Persist settings
-							localStorage.setItem("hydra.settings", JSON.stringify({ timezone: useEst ? "est" : "auto", units: unitsPref }));
+							localStorage.setItem("hydra.settings", JSON.stringify({ timezone: useEst ? "est" : "auto", units: unitsPref, environment }));
 							setMessage("Saved!");
 							setTimeout(() => (window.location.href = "/"), 600);
 						} catch (e: any) {

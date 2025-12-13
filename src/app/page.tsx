@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { Droplet, User } from "lucide-react";
@@ -6,7 +6,7 @@ import HydrationScoreCard from "../components/HydrationScoreCard";
 import HydrationProgressBar from "../components/HydrationProgressBar";
 import { Card } from "../components/ui/Card";
 import { useEffect, useState } from "react";
-import { getIntakesByDateNY, getProfile, todayNYDate, getIntakesForHome, getWorkoutsByDateNY, lastNDatesNY, hasCreatineOnDateNY, getSupplementsByDateNY } from "../lib/localStore";
+import { getIntakesByDateNY, getProfile, todayNYDate, getIntakesForHome, getWorkoutsByDateNY, lastNDatesNY, hasCreatineOnDateNY, getSupplementsByDateNY, getWhoopMetrics, setWhoopMetrics, getEnvironmentAdjustmentMl } from "../lib/localStore";
 import { calculateHydrationScore, WORKOUT_ML_PER_MIN } from "../lib/hydration";
 
 export default function Home() {
@@ -15,13 +15,19 @@ export default function Home() {
 		actual: 0,
 		score: 0,
 		intakes: [] as { id: string; timestamp: string; volume_ml: number; type: string }[],
+		flags: { workouts: false, creatine: false, env: false, whoop: false },
 	});
+	const [mounted, setMounted] = useState(false);
+
+	useEffect(() => {
+		setMounted(true);
+	}, []);
 
 	useEffect(() => {
 		const today = todayNYDate();
 		const profile = getProfile();
-		// Prefer NY date filter, but include a fallback to avoid edge mismatch
-		const intakes = getIntakesForHome(today).length ? getIntakesForHome(today) : getIntakesByDateNY(today);
+		// Strict NY day to avoid next-day carryover
+		const intakes = getIntakesByDateNY(today);
 		const workouts = getWorkoutsByDateNY(today);
 		const actual = intakes.reduce((s, i) => s + i.volume_ml, 0);
 		if (!profile) {
@@ -49,13 +55,16 @@ export default function Home() {
 			.filter((s) => s.type === "creatine" && s.grams && s.grams > 0)
 			.reduce((sum, s) => sum + (s.grams || 0) * 70, 0);
 
+		// Environment
+		const envAdj = getEnvironmentAdjustmentMl();
+
 		// WHOOP modifiers (sleep & recovery)
-		let target = Math.round(base + workoutAdjustment + creatineMl + carryover);
+		let target = Math.round(base + workoutAdjustment + creatineMl + carryover + envAdj);
+		let usedWhoop = false;
 		(async () => {
 			try {
-				const res = await fetch(`/api/whoop/metrics?date=${today}`, { credentials: "include" });
-				if (res.ok) {
-					const j = await res.json();
+				const cached = getWhoopMetrics(today);
+				const apply = (j: any) => {
 					let modPct = 0;
 					if (typeof j.sleep_hours === "number") {
 						const h = j.sleep_hours;
@@ -68,6 +77,13 @@ export default function Home() {
 						else if (r < 66) modPct += 0.02;
 					}
 					target = Math.round(target * (1 + modPct));
+				};
+				if (cached) { apply(cached); usedWhoop = true; }
+				const res = await fetch(`/api/whoop/metrics?date=${today}`, { credentials: "include" });
+				if (res.ok) {
+					const j = await res.json();
+					setWhoopMetrics(today, { sleep_hours: j.sleep_hours ?? null, recovery_score: j.recovery_score ?? null });
+					apply(j); usedWhoop = true;
 				}
 			} catch {}
 			const score =
@@ -79,25 +95,24 @@ export default function Home() {
 							workouts: [],
 					  })
 					: 0;
-			setState({ target, actual, score, intakes });
+			setState({
+				target,
+				actual,
+				score,
+				intakes,
+				flags: {
+					workouts: workouts.length > 0,
+					creatine: creatineMl > 0,
+					env: envAdj > 0,
+					whoop: usedWhoop,
+				},
+			});
 		})();
 	}, []);
 
 	return (
 		<div className="p-4">
-			<header className="mb-4 flex items-center justify-between">
-				<div className="flex items-center gap-2">
-					<Droplet className="text-blue-600" size={22} />
-					<h1 className="text-xl font-semibold">HydraIQ</h1>
-				</div>
-				<Link
-					href="/profile"
-					className="flex h-9 w-9 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-700 shadow-sm transition-colors hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200"
-					aria-label="Profile"
-				>
-					<User size={18} />
-				</Link>
-			</header>
+			{/* Top bar is now global */}
 
 			<HydrationScoreCard score={state.score} />
 
@@ -106,25 +121,47 @@ export default function Home() {
 			<Card className="mb-4 border-blue-100 bg-blue-50 p-4 text-blue-900 shadow-sm dark:border-blue-900/40 dark:bg-blue-950 dark:text-blue-200">
 				<p className="text-sm font-medium">Next recommendation</p>
 				{(() => {
+					const flags = state.flags || { workouts: false, creatine: false, env: false, whoop: false };
 					const deficitMl = Math.max(0, state.target - state.actual);
 					const deficitOz = Math.round(deficitMl / 29.5735);
-					if (deficitMl <= 0) {
-						return <p className="mt-1 text-sm">Nice work — you’re on target. Keep sipping water with meals.</p>;
+					// Render time-sensitive numbers only after mount to avoid SSR/CSR mismatch
+					let nowOz = 0, perHour = 0;
+					if (mounted) {
+						const now = new Date();
+						const end = new Date(now); end.setHours(21, 0, 0, 0);
+						const hoursLeft = Math.max(1, Math.ceil((end.getTime() - now.getTime()) / 3600000));
+						nowOz = Math.max(6, Math.min(20, Math.round(deficitOz * 0.5)));
+						perHour = Math.max(4, Math.round((deficitOz - nowOz) / hoursLeft));
 					}
-					// plan: half now, rest spread hourly until 9pm
-					const now = new Date();
-					const end = new Date(now); end.setHours(21, 0, 0, 0);
-					const hoursLeft = Math.max(1, Math.ceil((end.getTime() - now.getTime()) / 3600000));
-					const nowOz = Math.max(6, Math.min(20, Math.round(deficitOz * 0.5)));
-					const perHour = Math.max(4, Math.round((deficitOz - nowOz) / hoursLeft));
 					return (
 						<div className="mt-1 text-sm">
-							<p>Drink {nowOz} oz now, then {perHour} oz each hour until ~9pm.</p>
+							<p className="mb-1 text-xs opacity-80">Target today: <strong>{Math.round(state.target / 29.5735)} oz</strong></p>
+							{deficitMl > 0 ? (
+								<p>
+									Drink {mounted ? nowOz : Math.max(6, Math.min(20, Math.round(deficitOz * 0.5)))} oz now,
+									then {mounted ? perHour : Math.max(4, Math.round(deficitOz * 0.5 / Math.max(1, 4)))} oz each hour until ~9pm.
+								</p>
+							) : (
+								<p>Nice work — you’re on target. Keep sipping water with meals.</p>
+							)}
 							<p className="mt-1 text-xs opacity-80">Tip: small sips every ~20–30 min are easier than big chugs.</p>
+							{/* breakdown (client-only to avoid SSR mismatch) */}
+							{mounted ? (
+								<div className="mt-2 rounded-lg border border-blue-200/60 bg-white/70 p-2 text-xs text-blue-900 dark:border-blue-900/40 dark:bg-blue-950/40 dark:text-blue-200">
+									<p className="font-medium">Today’s target includes:</p>
+									<ul className="mt-1 list-disc pl-4">
+										<li>Base need from weight</li>
+										{flags.workouts ? <li>Workouts adjustment</li> : null}
+										{flags.creatine ? <li>Creatine</li> : null}
+										{flags.env ? <li>Environment</li> : null}
+										{flags.whoop ? <li>Sleep/Recovery modifiers (WHOOP)</li> : null}
+									</ul>
+								</div>
+							) : null}
 						</div>
 					);
 				})()}
-				{hasCreatineOnDateNY(todayNYDate()) ? (
+				{(state.flags || { creatine: false }).creatine ? (
 					<p className="mt-2 text-xs opacity-80">Creatine today increases your target slightly — aim to spread fluids through the day.</p>
 				) : null}
 			</Card>
@@ -160,4 +197,3 @@ export default function Home() {
 		</div>
 	);
 }
-

@@ -1,4 +1,4 @@
-﻿type Props = {
+type Props = {
 	actualMl: number;
 	targetMl: number;
 };
@@ -12,11 +12,14 @@ export default function HydrationProgressBar({ actualMl, targetMl }: Props) {
 				<span>{pct}%</span>
 			</div>
 			<div className="mt-2 h-3 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
-				<div
-					className="h-full rounded-full bg-blue-600"
-					style={{ width: `${pct}%` }}
-				/>
-			</div>
+        <div
+          className="h-full rounded-full transition-[width] duration-500 ease-out"
+          style={{
+            width: `${pct}%`,
+            background: "linear-gradient(90deg, #3b82f6 0%, #2563eb 100%)"
+          }}
+        />
+      </div>
 		</section>
 	);
 }

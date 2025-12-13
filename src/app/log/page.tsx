@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import Button from "../../components/ui/Button";
@@ -81,9 +81,9 @@ export default function LogPage() {
 								type="button"
 								onClick={() => setType(t)}
 								className={`rounded-xl border p-2 text-sm capitalize ${
-									type === t
-										? "border-blue-600 bg-blue-50 text-blue-700 dark:border-blue-500 dark:bg-blue-950 dark:text-blue-200"
-										: "border-zinc-200 bg-white text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200"
+								type === t
+									? "border-blue-600 bg-blue-50 text-blue-700 dark:border-blue-500 dark:bg-blue-950 dark:text-blue-200"
+									: "border-zinc-200 bg-white text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200"
 								}`}
 							>
 								{t}
@@ -101,9 +101,9 @@ export default function LogPage() {
 								type="button"
 								onClick={() => toggleSupp(opt.key)}
 								className={`rounded-xl border p-2 text-sm ${
-									supplements.includes(opt.key)
-										? "border-blue-600 bg-blue-50 text-blue-700 dark:border-blue-500 dark:bg-blue-950 dark:text-blue-200"
-										: "border-zinc-200 bg-white text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200"
+								supplements.includes(opt.key)
+									? "border-blue-600 bg-blue-50 text-blue-700 dark:border-blue-500 dark:bg-blue-950 dark:text-blue-200"
+									: "border-zinc-200 bg-white text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200"
 								}`}
 							>
 								{opt.label}
@@ -169,6 +169,3 @@ export default function LogPage() {
 		</div>
 	);
 }
-
-
-

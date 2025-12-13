@@ -46,9 +46,13 @@ export async function GET(req: Request) {
 	// Acquire token: prefer refresh, fallback to short-lived access cookie
 	const refreshToken = await getRefreshToken();
 	let accessToken: string | null = null;
+	let nextRefresh: string | undefined;
 	if (refreshToken) {
 		const payload = await refresh(refreshToken);
-		if (payload?.access_token) accessToken = payload.access_token;
+		if (payload?.access_token) {
+			accessToken = payload.access_token;
+			nextRefresh = payload.refresh_token as string | undefined;
+		}
 	}
 	if (!accessToken) {
 		accessToken = (await getAccessTokenFromCookie()) || null;
@@ -77,11 +81,17 @@ export async function GET(req: Request) {
 			const sJson: any = await sleepRes.json();
 			const records: any[] = Array.isArray(sJson?.records) ? sJson.records : [];
 			if (records.length) {
-				// Sum durations that fall within the day
+				// Prefer time asleep (sum of stage durations) over time in bed
 				const totalMs = records.reduce((sum, s) => {
-					const st = new Date(s.start).getTime();
-					const en = new Date(s.end).getTime();
-					return sum + Math.max(0, en - st);
+					const stage = (s?.score?.stage_summary ?? {}) as Record<string, any>;
+					const light = Number(stage.total_light_sleep_time_milli) || 0;
+					const sws = Number(stage.total_slow_wave_sleep_time_milli) || 0;
+					const rem = Number(stage.total_rem_sleep_time_milli) || 0;
+					const asleep = light + sws + rem;
+					if (asleep > 0) return sum + asleep;
+					const st = s?.start ? new Date(s.start).getTime() : NaN;
+					const en = s?.end ? new Date(s.end).getTime() : NaN;
+					return Number.isFinite(st) && Number.isFinite(en) ? sum + Math.max(0, en - st) : sum;
 				}, 0);
 				sleepHours = Math.round((totalMs / (1000 * 60 * 60)) * 10) / 10;
 			}
@@ -102,7 +112,26 @@ export async function GET(req: Request) {
 		}
 	} catch {}
 
-	return NextResponse.json({ sleep_hours: sleepHours, recovery_score: recovery });
+	// Return and refresh cookies so metrics persist through the day
+	const out = NextResponse.json({ sleep_hours: sleepHours, recovery_score: recovery });
+	try {
+		if (nextRefresh && nextRefresh !== refreshToken) {
+			out.cookies.set("whoop_refresh", nextRefresh, {
+				httpOnly: true,
+				secure: true,
+				path: "/",
+				maxAge: 60 * 60 * 24 * 30,
+				sameSite: "lax",
+			});
+		}
+		out.cookies.set("whoop_access", encodeURIComponent(accessToken), {
+			httpOnly: true,
+			secure: true,
+			path: "/",
+			maxAge: 30 * 60,
+			sameSite: "lax",
+		});
+	} catch {}
+	return out;
 }
-
 

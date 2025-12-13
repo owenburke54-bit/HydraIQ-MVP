@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { Card } from "../../components/ui/Card";
@@ -6,7 +6,7 @@ import RadialGauge from "../../components/charts/RadialGauge";
 import CalendarHeatmap from "../../components/charts/CalendarHeatmap";
 import Donut from "../../components/charts/Donut";
 import { calculateHydrationScore, WORKOUT_ML_PER_MIN, BASE_ML_PER_KG } from "../../lib/hydration";
-import { getProfile, formatNYDate, getIntakesByDateNY, getWorkoutsByDateNY, getSupplementsByDateNY } from "../../lib/localStore";
+import { getProfile, formatNYDate, getIntakesByDateNY, getWorkoutsByDateNY, getSupplementsByDateNY, getWhoopMetrics, setWhoopMetrics, getEnvironmentAdjustmentMl } from "../../lib/localStore";
 
 type DayPoint = { date: string; score: number; target: number; actual: number };
 
@@ -31,14 +31,90 @@ export default function InsightsPage() {
 	useEffect(() => {
 		(async () => {
 			try {
+				const cached = getWhoopMetrics(today);
+				if (cached) setWhoop({ sleepHours: cached.sleep_hours, recovery: cached.recovery_score });
 				const res = await fetch(`/api/whoop/metrics?date=${today}`, { credentials: "include" });
 				if (res.ok) {
 					const j = await res.json();
+					setWhoopMetrics(today, { sleep_hours: j.sleep_hours ?? null, recovery_score: j.recovery_score ?? null });
 					setWhoop({ sleepHours: j.sleep_hours ?? null, recovery: j.recovery_score ?? null });
 				}
 			} catch {}
 		})();
 	}, [today]);
+
+	// Compute contributor breakdowns (today and 7-day average)
+	const contrib = useMemo(() => {
+		const prof = getProfile();
+		const weight = prof?.weight_kg ?? 0;
+		if (weight <= 0) {
+			return null;
+		}
+		function sleepPct(h: number | null) {
+			if (h == null) return 0;
+			if (h < 7.5) return Math.max(0, (7.5 - h)) * 0.03;
+			if (h > 8.5) return -Math.max(0, (h - 8.5)) * 0.02;
+			return 0;
+		}
+		function recPct(r: number | null) {
+			if (r == null) return 0;
+			if (r < 33) return 0.05;
+			if (r < 66) return 0.02;
+			return 0;
+		}
+		function forDate(d: string) {
+			const workouts = getWorkoutsByDateNY(d);
+			const supps = getSupplementsByDateNY(d);
+			const base = Math.round(weight * BASE_ML_PER_KG);
+			const workout = workouts.reduce((sum, w) => {
+				const start = new Date(w.start_time);
+				const end = w.end_time ? new Date(w.end_time) : start;
+				const mins = Math.max(0, Math.round((end.getTime() - start.getTime()) / 60000));
+				const strain = typeof w.intensity === "number" ? Math.max(0, Math.min(21, w.intensity)) : 5;
+				const f = 0.5 + strain / 21;
+				return sum + Math.round(mins * WORKOUT_ML_PER_MIN * f);
+			}, 0);
+			const creatine = supps
+				.filter((s) => s.type === "creatine" && s.grams && s.grams > 0)
+				.reduce((sum, s) => sum + (s.grams || 0) * 70, 0);
+			const env = getEnvironmentAdjustmentMl();
+			const baseTarget = base + workout + creatine + env;
+			const m = getWhoopMetrics(d);
+			const sPct = sleepPct(m?.sleep_hours ?? null);
+			const rPct = recPct(m?.recovery_score ?? null);
+			const sleepAdd = Math.round(baseTarget * sPct);
+			const recAdd = Math.round(baseTarget * rPct);
+			const total = Math.round(baseTarget + sleepAdd + recAdd);
+			return { base, workout, creatine, env, sleepAdd, recAdd, total };
+		}
+		const todayVals = forDate(today);
+		const dates7 = lastNDatesNY(7);
+		const avg = dates7.reduce(
+			(acc, d) => {
+				const v = forDate(d);
+				acc.base += v.base;
+				acc.workout += v.workout;
+				acc.creatine += v.creatine;
+				acc.env += v.env;
+				acc.sleepAdd += v.sleepAdd;
+				acc.recAdd += v.recAdd;
+				acc.total += v.total;
+				return acc;
+			},
+			{ base: 0, workout: 0, creatine: 0, env: 0, sleepAdd: 0, recAdd: 0, total: 0 }
+		);
+		const n = Math.max(1, dates7.length);
+		const avgVals = {
+			base: Math.round(avg.base / n),
+			workout: Math.round(avg.workout / n),
+			creatine: Math.round(avg.creatine / n),
+			env: Math.round(avg.env / n),
+			sleepAdd: Math.round(avg.sleepAdd / n),
+			recAdd: Math.round(avg.recAdd / n),
+			total: Math.round(avg.total / n),
+		};
+		return { today: todayVals, avg: avgVals };
+	}, [today, points]);
 
 	// Breakdown of today's target: base + workouts + creatine
 	const todayBreakdown = useMemo(() => {
@@ -169,6 +245,49 @@ export default function InsightsPage() {
 	return (
 		<div className="p-4">
 			<h1 className="text-xl font-semibold">Insights</h1>
+			{(() => {
+				// Correlation pills: Sleep and Recovery
+				if (!points.length) return null;
+				const dates = points.map((p) => p.date);
+				const scores = points.map((p) => p.score);
+				function compute(metric: (m: ReturnType<typeof getWhoopMetrics>) => number | null) {
+					const xs: number[] = [];
+					const ys: number[] = [];
+					for (let i = 0; i < dates.length; i++) {
+						const m = getWhoopMetrics(dates[i]);
+						const y = metric(m);
+						if (m && typeof y === "number") {
+							xs.push(scores[i]); ys.push(y);
+						}
+					}
+					const n = xs.length;
+					if (n < 3) return null;
+					const ax = xs.reduce((s, v) => s + v, 0) / n;
+					const bx = ys.reduce((s, v) => s + v, 0) / n;
+					let num = 0, da = 0, db = 0;
+					for (let i = 0; i < n; i++) { const av = xs[i] - ax, bv = ys[i] - bx; num += av * bv; da += av * av; db += bv * bv; }
+					const den = Math.sqrt(da * db) || 0; if (!den) return null;
+					return Math.max(-1, Math.min(1, num / den));
+				}
+				const rSleep = compute(m => m?.sleep_hours ?? null);
+				const rRec = compute(m => m?.recovery_score ?? null);
+				return (
+					<div className="mt-2 flex items-center gap-3">
+						{rSleep == null ? null : (
+							<div className="flex items-center gap-1 text-xs text-zinc-600 dark:text-zinc-400">
+								<span>Score vs Sleep</span>
+								<DeltaPill value={rSleep} />
+							</div>
+						)}
+						{rRec == null ? null : (
+							<div className="flex items-center gap-1 text-xs text-zinc-600 dark:text-zinc-400">
+								<span>Score vs Recovery</span>
+								<DeltaPill value={rRec} />
+							</div>
+						)}
+					</div>
+				);
+			})()}
 
 			<div className="mt-3 flex gap-2">
 				<button
@@ -264,6 +383,31 @@ export default function InsightsPage() {
 					</Card>
 				</section>
 			)}
+
+			{/* Contributors: Today vs 7-day avg */}
+			{contrib ? (
+				<section className="mt-4">
+					<Card className="p-4">
+						<p className="mb-2 text-sm text-zinc-600 dark:text-zinc-400">Contributors (oz): Today</p>
+						<ul className="space-y-1 text-sm">
+							{[
+								{ label: "Base need", v: contrib.today.base },
+								{ label: "Workouts", v: contrib.today.workout },
+								{ label: "Creatine", v: contrib.today.creatine },
+								{ label: "Environment", v: contrib.today.env },
+								{ label: "Sleep modifier", v: contrib.today.sleepAdd },
+								{ label: "Recovery modifier", v: contrib.today.recAdd },
+								{ label: "Total target", v: contrib.today.total },
+							].map((row, i) => (
+								<li key={i} className="flex items-center justify-between">
+									<span>{row.label}</span>
+									<span className="tabular-nums">{Math.round((row as any).v / 29.5735)} oz</span>
+								</li>
+							))}
+						</ul>
+					</Card>
+				</section>
+			) : null}
 
 			{/* Time-of-day stacked bars (7d) */}
 			<section className="mt-4">
@@ -462,5 +606,21 @@ function TodayChart({ todayPoint }: { todayPoint: DayPoint | null }) {
 			<path d={targetLine(todayPoint.target)} fill="none" stroke="#94a3b8" strokeWidth="2" />
 			<path d={line(cumulative)} fill="none" stroke="#2563eb" strokeWidth="2" />
 		</svg>
+	);
+}
+
+function DeltaPill({ value }: { value: number }) {
+	const positive = value >= 0;
+	const pct = Math.round(Math.abs(value) * 100);
+	const bg = positive ? "bg-emerald-900/30" : "bg-rose-900/30";
+	const text = positive ? "text-emerald-400" : "text-rose-400";
+	const rotate = positive ? "rotate-0" : "rotate-180";
+	return (
+		<span className={`inline-flex items-center gap-1 rounded-xl px-2 py-1 ${bg}`}>
+			<svg width="10" height="10" viewBox="0 0 24 24" className={`${text} ${rotate}`} aria-hidden>
+				<polygon points="12,4 20,20 4,20" fill="currentColor"></polygon>
+			</svg>
+			<span className={`text-[11px] font-medium leading-none ${text}`}>{pct}%</span>
+		</span>
 	);
 }

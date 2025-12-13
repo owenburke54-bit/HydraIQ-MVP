@@ -39,6 +39,11 @@ type SupplementEvent = {
 	type: "creatine" | "protein" | "multivitamin" | "fish_oil" | "electrolyte_tablet" | "other";
 	grams?: number | null;
 };
+type Settings = {
+	timezone?: "est" | "auto";
+	units?: "oz" | "ml";
+	environment?: "normal" | "warm" | "hot";
+};
 export function formatNYDate(d: Date): string {
 	// YYYY-MM-DD in America/New_York
 	const parts = new Intl.DateTimeFormat("en-CA", {
@@ -92,6 +97,18 @@ export function getProfile(): Profile | null {
 
 export function saveProfile(p: Profile) {
 	writeJSON("hydra.profile", p);
+}
+
+export function getSettings(): Settings {
+	try {
+		return readJSON<Settings>("hydra.settings", { timezone: "est", units: "oz", environment: "normal" });
+	} catch {
+		return { timezone: "est", units: "oz", environment: "normal" };
+	}
+}
+
+export function setSettings(next: Settings) {
+	writeJSON("hydra.settings", next);
 }
 
 export function addIntake(volumeMl: number, type: Intake["type"], ts: Date) {
@@ -245,7 +262,8 @@ export function recomputeSummary(dateNY: string) {
 		if (s.type === "creatine" && s.grams && s.grams > 0) return sum + s.grams * 70;
 		return sum;
 	}, 0);
-	const target = Math.round((weight > 0 ? weight * 35 : 0) + workoutAdj + suppAdj);
+	const envAdj = getEnvironmentAdjustmentMl();
+	const target = Math.round((weight > 0 ? weight * 35 : 0) + workoutAdj + suppAdj + envAdj);
 	const map = readJSON<Record<string, Summary>>("hydra.summaries", {});
 	map[dateNY] = { date: dateNY, target_ml: target, actual_ml: actual };
 	writeJSON("hydra.summaries", map);
@@ -256,3 +274,20 @@ export function getSummaryByDate(dateNY: string): Summary | null {
 	return map[dateNY] ?? null;
 }
 
+export function getEnvironmentAdjustmentMl(): number {
+	const env = getSettings().environment ?? "normal";
+	if (env === "warm") return 200;
+	if (env === "hot") return 400;
+	return 0;
+}
+
+// WHOOP metrics cache (per NY date)
+type WhoopMetrics = { sleep_hours: number | null; recovery_score: number | null; fetched_at: string };
+export function getWhoopMetrics(dateNY: string): WhoopMetrics | null {
+	return readJSON<Record<string, WhoopMetrics>>("hydra.whoop", {})[dateNY] ?? null;
+}
+export function setWhoopMetrics(dateNY: string, m: { sleep_hours: number | null; recovery_score: number | null }) {
+	const map = readJSON<Record<string, WhoopMetrics>>("hydra.whoop", {});
+	map[dateNY] = { sleep_hours: m.sleep_hours, recovery_score: m.recovery_score, fetched_at: new Date().toISOString() };
+	writeJSON("hydra.whoop", map);
+}
