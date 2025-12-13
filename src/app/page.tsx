@@ -122,7 +122,7 @@ export default function Home() {
 			<HydrationProgressBar actualMl={state.actual} targetMl={state.target} />
 
 			<Card className="mb-4 border-blue-100 bg-blue-50 p-4 text-blue-900 shadow-sm dark:border-blue-900/40 dark:bg-blue-950 dark:text-blue-200">
-				<p className="text-sm font-weight-semibold">Recommendations:</p>
+				<p className="text-sm font-semibold">Recommendations:</p>
 				{(() => {
 					const flags = state.flags || { workouts: false, creatine: false, env: false, whoop: false };
 					const deficitMl = Math.max(0, state.target - state.actual);
@@ -151,7 +151,7 @@ export default function Home() {
 							{/* breakdown (client-only to avoid SSR mismatch); bulletless, cleaner layout */}
 							{mounted ? (
 								<div className="mt-2 rounded-lg border border-blue-200/60 bg-white/70 p-3 text-xs text-blue-900 dark:border-blue-900/40 dark:bg-blue-950/40 dark:text-blue-200">
-									<p className="font-medium mb-1">Today’s target includes</p>
+									<p className="font-semibold mb-1">Today’s target includes:</p>
 									<div className="space-y-1">
 										<div>Base need from weight</div>
 										{flags.workouts ? <div>Workouts adjustment</div> : null}

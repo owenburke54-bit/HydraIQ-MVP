@@ -533,8 +533,7 @@ function StackedBars({ points }: { points: DayPoint[] }) {
 						</g>
 					);
 				})}
-				{/* Axis label */}
-				<text x={leftPad - 14} y={12} textAnchor="end" fontSize="10" fill="#64748b">%</text>
+				{/* Unit caption removed for cleaner look */}
 			</svg>
 			{/* Legend */}
 			<div className="mt-2 flex items-center gap-4 text-xs text-zinc-600 dark:text-zinc-400">
@@ -621,9 +620,7 @@ function TodayChart({ todayPoint }: { todayPoint: DayPoint | null }) {
 			{/* Series */}
 			<path d={targetLine(todayPoint.target)} fill="none" stroke="#94a3b8" strokeWidth="2" />
 			<path d={line(cumulative)} fill="none" stroke="#2563eb" strokeWidth="2" />
-			{/* Axis labels */}
-			<text x={leftPad - 14} y={12} textAnchor="end" fontSize="10" fill="#64748b">oz</text>
-			<text x={w - pad} y={h} textAnchor="end" fontSize="10" fill="#64748b">h</text>
+			{/* Unit captions removed for cleaner look */}
 		</svg>
 	);
 }
