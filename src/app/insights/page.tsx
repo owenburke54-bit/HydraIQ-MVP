@@ -502,15 +502,31 @@ function StackedBars({ points }: { points: DayPoint[] }) {
 		return { date: p.date.slice(5), m: m / total, a: a / total, e: e / total };
 	});
 
-	const w = 340, h = 140, pad = 16, axisH = 18;
+	const w = 340, h = 160, pad = 16, axisH = 18, leftPad = 38;
 	const barAreaH = h - pad * 2 - axisH;
-	const barW = (w - pad * 2) / Math.max(1, rows.length);
+	const barW = (w - leftPad - pad) / Math.max(1, rows.length);
 
 	return (
 		<div className="mt-3">
-			<svg viewBox={`0 0 ${w} ${h}`} className="h-36 w-full">
+			<svg viewBox={`0 0 ${w} ${h}`} className="h-40 w-full">
+				{/* Axes */}
+				<line x1={leftPad} y1={h - pad - axisH} x2={w - pad} y2={h - pad - axisH} stroke="#e5e7eb" />
+				<line x1={leftPad} y1={pad} x2={leftPad} y2={h - pad - axisH} stroke="#e5e7eb" />
+				{/* Y ticks 0/50/100% */}
+				{[0, 0.5, 1].map((p, i) => {
+					const y = pad + (1 - p) * barAreaH;
+					const label = Math.round(p * 100);
+					return (
+						<g key={i}>
+							<line x1={leftPad - 4} y1={y} x2={w - pad} y2={y} stroke="#f1f5f9" />
+							<text x={leftPad - 6} y={y + 3} textAnchor="end" fontSize="10" fill="#64748b">
+								{label}%
+							</text>
+						</g>
+					);
+				})}
 				{rows.map((r, i) => {
-					const x = pad + i * barW;
+					const x = leftPad + i * barW;
 					const mH = r.m * barAreaH;
 					const aH = r.a * barAreaH;
 					const eH = r.e * barAreaH;
@@ -541,12 +557,14 @@ function StackedBars({ points }: { points: DayPoint[] }) {
 							)}
 
 							{/* X-axis label (MM-DD) */}
-							<text x={cx} y={h - pad + 12} textAnchor="middle" fontSize="10" fill="#6b7280">
+							<text x={cx} y={h - pad + 12 - axisH} textAnchor="middle" fontSize="10" fill="#6b7280">
 								{r.date}
 							</text>
 						</g>
 					);
 				})}
+				{/* Axis label */}
+				<text x={leftPad - 14} y={12} textAnchor="end" fontSize="10" fill="#64748b">%</text>
 			</svg>
 			{/* Legend */}
 			<div className="mt-2 flex items-center gap-4 text-xs text-zinc-600 dark:text-zinc-400">
@@ -584,7 +602,8 @@ function formatType(t?: string | null) {
 
 function TodayChart({ todayPoint }: { todayPoint: DayPoint | null }) {
 	if (!todayPoint) return <div className="h-40" />;
-	const w = 320, h = 120, pad = 16;
+	const w = 320, h = 140;
+	const leftPad = 38, pad = 16; // left space for Y-axis labels
 	const startHr = 6, endHr = 21;
 	const today = formatNYDate(new Date());
 	const ints = getIntakesByDateNY(today).sort((a, b) => +new Date(a.timestamp) - +new Date(b.timestamp));
@@ -597,14 +616,44 @@ function TodayChart({ todayPoint }: { todayPoint: DayPoint | null }) {
 		cumulative.push({ t: hr, ml: sum });
 	}
 	const maxY = Math.max(1, todayPoint.target, ...cumulative.map((c) => c.ml));
-	const scaleX = (t: number) => pad + ((t - startHr) / Math.max(1, endHr - startHr)) * (w - pad * 2);
+	const scaleX = (t: number) => leftPad + ((t - startHr) / Math.max(1, endHr - startHr)) * (w - leftPad - pad);
 	const scaleY = (v: number) => h - pad - (v / maxY) * (h - pad * 2);
 	const line = (vals: { t: number; ml: number }[]) => vals.map((p, i) => `${i ? "L" : "M"} ${scaleX(p.t)} ${scaleY(p.ml)}`).join(" ");
 	const targetLine = (tgt: number) => line(cumulative.map((c, i) => ({ t: c.t, ml: (tgt / Math.max(1, cumulative.length - 1)) * i })));
 	return (
-		<svg viewBox={`0 0 ${w} ${h}`} className="mt-3 h-40 w-full">
+		<svg viewBox={`0 0 ${w} ${h}`} className="mt-3 h-44 w-full">
+			{/* Axes */}
+			<line x1={leftPad} y1={h - pad} x2={w - pad} y2={h - pad} stroke="#e5e7eb" />
+			<line x1={leftPad} y1={pad} x2={leftPad} y2={h - pad} stroke="#e5e7eb" />
+			{/* Y ticks (oz) */}
+			{[0, 0.5, 1].map((p, i) => {
+				const v = p * maxY;
+				const y = scaleY(v);
+				const oz = Math.round(v / 29.5735);
+				return (
+					<g key={i}>
+						<line x1={leftPad - 4} y1={y} x2={w - pad} y2={y} stroke="#f1f5f9" />
+						<text x={leftPad - 6} y={y + 3} textAnchor="end" fontSize="10" fill="#64748b">
+							{oz}
+						</text>
+					</g>
+				);
+			})}
+			{/* X ticks (hours) */}
+			{[6, 9, 12, 15, 18, 21].map((t) => (
+				<g key={t}>
+					<line x1={scaleX(t)} y1={h - pad} x2={scaleX(t)} y2={h - pad + 4} stroke="#cbd5e1" />
+					<text x={scaleX(t)} y={h - 2} textAnchor="middle" fontSize="10" fill="#64748b">
+						{t}
+					</text>
+				</g>
+			))}
+			{/* Series */}
 			<path d={targetLine(todayPoint.target)} fill="none" stroke="#94a3b8" strokeWidth="2" />
 			<path d={line(cumulative)} fill="none" stroke="#2563eb" strokeWidth="2" />
+			{/* Axis labels */}
+			<text x={leftPad - 14} y={12} textAnchor="end" fontSize="10" fill="#64748b">oz</text>
+			<text x={w - pad} y={h} textAnchor="end" fontSize="10" fill="#64748b">h</text>
 		</svg>
 	);
 }
