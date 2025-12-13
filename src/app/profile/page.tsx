@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { getProfile, saveProfile } from "../../lib/localStore";
 
 type Units = "metric" | "imperial";
  type Sex = "male" | "female" | "other";
 
 export default function ProfilePage() {
+	const router = useRouter();
 	const [name, setName] = useState<string>("");
 	const [sex, setSex] = useState<Sex>("other");
 	const [height, setHeight] = useState<string>("");
@@ -234,7 +236,7 @@ export default function ProfilePage() {
 							// Persist settings
 							localStorage.setItem("hydra.settings", JSON.stringify({ timezone: useEst ? "est" : "auto", units: unitsPref }));
 							setMessage("Saved!");
-							setTimeout(() => (window.location.href = "/"), 600);
+							setTimeout(() => router.replace("/"), 600);
 						} catch (e: any) {
 							setError(e.message || "Failed to save profile");
 						} finally {

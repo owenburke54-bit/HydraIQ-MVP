@@ -1,11 +1,13 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 type Units = "metric" | "imperial";
 type Sex = "male" | "female" | "other";
 
 export default function OnboardingPage() {
+	const router = useRouter();
 	const [name, setName] = useState<string>("");
 	const [sex, setSex] = useState<Sex>("other");
 	const [height, setHeight] = useState<string>(""); // cm or ft'in
@@ -144,7 +146,7 @@ export default function OnboardingPage() {
 								const j = await res.json().catch(() => ({}));
 								throw new Error(j?.error ?? "Failed to save profile");
 							}
-							location.href = "/";
+							router.replace("/");
 						} catch (e: any) {
 							setError(e.message || "Failed to save profile");
 						} finally {

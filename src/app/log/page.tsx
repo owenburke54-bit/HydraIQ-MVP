@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Button from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { addIntake } from "../../lib/localStore";
@@ -8,6 +9,7 @@ import { addIntake } from "../../lib/localStore";
 type SuppKey = "creatine" | "protein" | "multivitamin" | "fish_oil" | "electrolyte_tablet" | "other";
 
 export default function LogPage() {
+	const router = useRouter();
 	const [volume, setVolume] = useState<number | "">("");
 	const [type, setType] = useState<"water" | "electrolyte" | "other">("water");
 	const [time, setTime] = useState<string>(() => {
@@ -154,7 +156,7 @@ export default function LogPage() {
 								const add = (await import("../../lib/localStore")).addSupplements;
 								add({ types: supplements, timestamp: when, grams });
 							}
-							window.location.href = "/";
+							router.replace("/");
 						} catch (e: any) {
 							setError(e.message || "Unexpected error");
 						} finally {
