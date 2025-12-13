@@ -7,8 +7,15 @@ export default function RegisterSW() {
 		if ("serviceWorker" in navigator) {
 			navigator.serviceWorker
 				.register("/sw.js")
-				.catch(() => {
-					// ignore
+				.then((reg) => {
+					if (process.env.NODE_ENV !== "production") {
+						console.log("[PWA] Service worker registered", reg.scope);
+					}
+				})
+				.catch((err) => {
+					if (process.env.NODE_ENV !== "production") {
+						console.warn("[PWA] Service worker registration failed", err);
+					}
 				});
 		}
 	}, []);
