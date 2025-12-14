@@ -23,6 +23,30 @@ export default function Home() {
 		setMounted(true);
 	}, []);
 
+	// Recalculate score (and refresh intakes/actual) on a timer so it updates over time
+	useEffect(() => {
+		const tick = () => {
+			const today = todayNYDate();
+			const intakes = getIntakesByDateNY(today);
+			const actual = intakes.reduce((s, i) => s + i.volume_ml, 0);
+			const score =
+				state.target > 0
+					? calculateHydrationScore({
+							targetMl: state.target,
+							actualMl: actual,
+							intakes: intakes.map((i) => ({ timestamp: new Date(i.timestamp), volumeMl: i.volume_ml })),
+							workouts: [],
+					  })
+					: 0;
+			setState((prev) => ({ ...prev, intakes, actual, score }));
+		};
+		// run once on mount and then every minute
+		tick();
+		const id = setInterval(tick, 60 * 1000);
+		return () => clearInterval(id);
+		// Recreate timer if target changes significantly (e.g., WHOOP refresh)
+	}, [state.target]);
+
 	useEffect(() => {
 		const today = todayNYDate();
 		const profile = getProfile();

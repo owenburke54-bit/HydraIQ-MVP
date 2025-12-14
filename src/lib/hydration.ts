@@ -1,4 +1,4 @@
-﻿export const BASE_ML_PER_KG = 35;
+export const BASE_ML_PER_KG = 35;
 export const WORKOUT_ML_PER_MIN = 8;
 export const HEAT_MULTIPLIER = 1.1;
 
@@ -62,17 +62,25 @@ export function calculateHydrationScore(inputs: ScoreInputs): number {
 		score -= 10;
 	}
 
-	// 3) Dry gap penalty: >3h between intakes on workout days
-	const sorted = [...inputs.intakes].sort(
-		(a, b) => a.timestamp.getTime() - b.timestamp.getTime()
-	);
-	for (let i = 1; i < sorted.length; i++) {
-		const diffHours =
-			(sorted[i].timestamp.getTime() - sorted[i - 1].timestamp.getTime()) /
-			(1000 * 60 * 60);
-		if (diffHours > 3) {
-			score -= 10;
-			break;
+	// 3) Dry gap penalty (live): penalize ONLY the current ongoing gap,
+	//    not historical gaps, so logging water recovers the penalty immediately.
+	//    Grows gradually after 3h without intake, capped to -15.
+	const now = new Date().getTime();
+	if (inputs.intakes.length > 0) {
+		const last = inputs.intakes.reduce((a, b) =>
+			a.timestamp.getTime() > b.timestamp.getTime() ? a : b
+		).timestamp.getTime();
+		const hoursSince = (now - last) / (1000 * 60 * 60);
+		if (hoursSince > 3) {
+			const over = hoursSince - 3;
+			// ~ -1.5 points per hour after 3h, up to -15
+			score -= Math.min(15, over * 1.5);
+		}
+	} else {
+		// No intake yet today: begin a light penalty in the afternoon that grows through the day
+		const hour = new Date().getHours();
+		if (hour >= 12) {
+			score -= Math.min(10, (hour - 12) * 1.25);
 		}
 	}
 
