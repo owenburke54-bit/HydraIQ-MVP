@@ -4,17 +4,15 @@ import { useMemo } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { formatNYDate } from "@/lib/localStore";
 
-function isISODate(v: string | null | undefined) {
+function isISODate(v: unknown): v is string {
   return typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v);
 }
 
 // Add days to an ISO date using UTC-safe math (avoids DST edge cases)
 function addDaysISO(iso: string, delta: number) {
-  if (!isISODate(iso)) return formatNYDate(new Date());
   const [y, m, d] = iso.split("-").map(Number);
   const baseUtc = Date.UTC(y, m - 1, d);
   const next = new Date(baseUtc + delta * 24 * 60 * 60 * 1000);
-  // Return YYYY-MM-DD in UTC (still fine since it's just the param string)
   return next.toISOString().slice(0, 10);
 }
 
@@ -24,13 +22,15 @@ export default function DateSwitcher() {
   const searchParams = useSearchParams();
 
   const todayISO = useMemo(() => formatNYDate(new Date()), []);
-  const selectedDate = useMemo(() => {
-    const q = searchParams?.get("date");
+
+  // Always a string (never null)
+  const selectedDate: string = useMemo(() => {
+    const q = searchParams.get("date"); // string | null
     return isISODate(q) ? q : todayISO;
   }, [searchParams, todayISO]);
 
   function go(nextISO: string) {
-    const params = new URLSearchParams(searchParams?.toString());
+    const params = new URLSearchParams(searchParams.toString());
     params.set("date", nextISO);
     router.push(`${pathname}?${params.toString()}`);
   }
