@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Suspense } from "react";
 import "./globals.css";
 import BottomNav from "../components/BottomNav";
 import RegisterSW from "../components/RegisterSW";
@@ -39,17 +40,19 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-title" content="HydraIQ" />
         <link rel="apple-touch-icon" href="/icons/icon-192.png" />
       </head>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <RegisterSW />
         <StartupMigration />
-        <TopBar />
+
+        {/* TopBar likely uses useSearchParams via DateSwitcher — must be wrapped in Suspense */}
+        <Suspense fallback={null}>
+          <TopBar />
+        </Suspense>
+
         <div className="mx-auto flex min-h-screen max-w-[420px] flex-col text-zinc-900 dark:text-zinc-100 pt-14">
-          <main className="flex-1 overflow-x-hidden pb-[88px] px-4">
-            {children}
-          </main>
+          <main className="flex-1 overflow-x-hidden pb-[88px] px-4">{children}</main>
         </div>
+
         <BottomNav />
       </body>
     </html>
