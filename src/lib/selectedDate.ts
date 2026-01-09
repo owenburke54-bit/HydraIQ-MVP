@@ -1,54 +1,85 @@
-// src/lib/selectedDate.ts
-// Utilities for working with YYYY-MM-DD dates (NY day semantics).
+"use client";
 
-const NY_TZ = "America/New_York";
+import { useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 
-export function isISODate(v: string | null | undefined): v is string {
-  return typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v);
+export function isoDate(d: Date) {
+  // Local date -> YYYY-MM-DD
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+export function isISODate(v: string | null | undefined) {
+  return !!v && /^\d{4}-\d{2}-\d{2}$/.test(v);
+}
+
+export function clampISODate(v: string) {
+  // simple guard; keep as-is if valid else today
+  return isISODate(v) ? v : isoDate(new Date());
+}
+
+export function addDays(iso: string, delta: number) {
+  // Use UTC so the YYYY-MM-DD math is stable
+  const d = new Date(`${iso}T00:00:00.000Z`);
+  d.setUTCDate(d.getUTCDate() + delta);
+  return d.toISOString().slice(0, 10);
+}
+
+export function readSelectedDateFromLocation(todayISO = isoDate(new Date())) {
+  if (typeof window === "undefined") return todayISO;
+  const sp = new URLSearchParams(window.location.search);
+  const q = sp.get("date");
+  return isISODate(q) ? (q as string) : todayISO;
+}
+
+export function buildUrlWithDate(pathname: string, nextISO: string) {
+  const sp =
+    typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search)
+      : new URLSearchParams();
+  sp.set("date", nextISO);
+  const qs = sp.toString();
+  return qs ? `${pathname}?${qs}` : pathname;
 }
 
 /**
- * Format a Date into YYYY-MM-DD in America/New_York.
- * Uses en-CA to get YYYY-MM-DD reliably.
+ * Client hook that reads/writes ?date=YYYY-MM-DD without useSearchParams().
+ * Safe for prerender /_not-found (no suspense required).
  */
-export function isoDate(d: Date): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: NY_TZ,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(d);
+export function useSelectedISODate() {
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const todayISO = useMemo(() => isoDate(new Date()), []);
+  const [selectedDate, setSelectedDate] = useState<string>(todayISO);
+
+  // Read from URL on mount + on browser nav
+  useEffect(() => {
+    const sync = () => setSelectedDate(readSelectedDateFromLocation(todayISO));
+    sync();
+
+    const onPop = () => sync();
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, [todayISO]);
+
+  const prev = useMemo(() => addDays(selectedDate, -1), [selectedDate]);
+  const next = useMemo(() => addDays(selectedDate, +1), [selectedDate]);
+  const nextDisabled = selectedDate === todayISO;
+
+  const label = useMemo(() => {
+    if (selectedDate === todayISO) return "Today";
+    if (selectedDate === addDays(todayISO, -1)) return "Yesterday";
+    return selectedDate;
+  }, [selectedDate, todayISO]);
+
+  function go(nextISO: string) {
+    const url = buildUrlWithDate(pathname || "/", nextISO);
+    router.push(url);
+    setSelectedDate(nextISO);
+  }
+
+  return { todayISO, selectedDate, label, prev, next, nextDisabled, go };
 }
-
-/**
- * Add N days to an ISO date string (YYYY-MM-DD).
- * Uses UTC math on date parts to avoid DST issues, then re-formats for NY.
- */
-export function addDays(iso: string, days: number): string {
-  if (!isISODate(iso)) return isoDate(new Date());
-
-  const [y, m, d] = iso.split("-").map((n) => Number(n));
-  // Use UTC noon-ish by constructing a UTC date from parts
-  const baseUtc = Date.UTC(y, m - 1, d);
-  const next = new Date(baseUtc + days * 24 * 60 * 60 * 1000);
-
-  // Format in NY to keep "day" consistent with your app
-  return isoDate(next);
-}
-
-/**
- * Clamp an ISO date string between minIso and maxIso (inclusive).
- * Works because YYYY-MM-DD compares lexicographically.
- */
-export function clampISODate(iso: string, minIso: string, maxIso: string): string {
-  if (!isISODate(iso)) return minIso;
-  if (iso < minIso) return minIso;
-  if (iso > maxIso) return maxIso;
-  return iso;
-}
-
-/**
- * Optional default export for convenience / backwards compatibility.
- */
-const selectedDate = { isoDate, addDays, clampISODate, isISODate };
-export default selectedDate;
