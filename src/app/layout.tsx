@@ -40,12 +40,19 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-title" content="HydraIQ" />
         <link rel="apple-touch-icon" href="/icons/icon-192.png" />
       </head>
+
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <RegisterSW />
         <StartupMigration />
 
-        {/* TopBar likely uses useSearchParams via DateSwitcher — must be wrapped in Suspense */}
-        <Suspense fallback={null}>
+        {/* ✅ useSearchParams() consumers (DateSwitcher) must be inside Suspense */}
+        <Suspense
+          fallback={
+            <header className="fixed top-0 left-0 right-0 z-40 border-b border-zinc-200/50 bg-white/70 dark:border-zinc-800/40 dark:bg-black/30">
+              <div className="mx-auto h-14 max-w-[420px]" />
+            </header>
+          }
+        >
           <TopBar />
         </Suspense>
 
