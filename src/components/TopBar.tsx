@@ -1,9 +1,7 @@
-"use client";
-
 import Link from "next/link";
 import { Suspense } from "react";
 import { Droplet, User } from "lucide-react";
-import DateSwitcher from "./DateSwitcher";
+import TopBarClient from "./TopBarClient";
 
 export default function TopBar() {
   return (
@@ -27,7 +25,7 @@ export default function TopBar() {
           </Link>
         </div>
 
-        {/* Date switcher (Suspense-safe) */}
+        {/* Date switcher (client component) wrapped by Suspense in SERVER component */}
         <div className="mt-2">
           <Suspense
             fallback={
@@ -38,7 +36,7 @@ export default function TopBar() {
               </div>
             }
           >
-            <DateSwitcher />
+            <TopBarClient />
           </Suspense>
         </div>
       </div>
