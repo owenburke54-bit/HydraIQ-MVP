@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Droplet, PlusCircle, Activity, Sparkles, User, Clock } from "lucide-react";
+import { Droplet, PlusCircle, Activity, Sparkles, User } from "lucide-react";
 import { twMerge } from "tailwind-merge";
 import type React from "react";
 
@@ -14,7 +14,6 @@ type NavItem = {
 
 const NAV_ITEMS: NavItem[] = [
   { label: "Profile", href: "/profile", icon: User },
-  { label: "History", href: "/history", icon: Clock },
   { label: "Home", href: "/", icon: Droplet },
   { label: "Log", href: "/log", icon: PlusCircle },
   { label: "Workouts", href: "/workouts", icon: Activity },
