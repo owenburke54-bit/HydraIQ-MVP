@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Card } from "../../components/ui/Card";
 import RadialGauge from "../../components/charts/RadialGauge";
 import CalendarHeatmap from "../../components/charts/CalendarHeatmap";
+import DateSwitcher from "../../components/DateSwitcher";
 import { calculateHydrationScore, WORKOUT_ML_PER_MIN, BASE_ML_PER_KG } from "../../lib/hydration";
 import {
 	getProfile,
@@ -30,6 +32,10 @@ type HistoryRow = {
 	sleep_hours: number | null;
 	recovery_pct: number | null;
 };
+
+function isISODate(v: string | null) {
+	return !!v && /^\d{4}-\d{2}-\d{2}$/.test(v);
+}
 
 function lastNDatesNY(n: number): string[] {
 	const arr: string[] = [];
@@ -98,8 +104,8 @@ function TabPill({
 			onClick={onClick}
 			className={
 				active
-					? "inline-flex items-center rounded-xl border px-3 py-2 text-sm border-blue-600 bg-blue-50 text-blue-700"
-					: "inline-flex items-center rounded-xl border px-3 py-2 text-sm border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50"
+					? "inline-flex items-center rounded-xl border px-3 py-2 text-sm border-blue-600 bg-blue-50 text-blue-700 dark:border-blue-500 dark:bg-blue-950 dark:text-blue-200"
+					: "inline-flex items-center rounded-xl border px-3 py-2 text-sm border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
 			}
 			aria-pressed={active}
 		>
@@ -109,33 +115,47 @@ function TabPill({
 }
 
 export default function InsightsPage() {
+	const router = useRouter();
+	const searchParams = useSearchParams();
+
+	const selectedDate = useMemo(() => {
+		const q = searchParams?.get("date");
+		return isISODate(q) ? (q as string) : formatNYDate(new Date());
+	}, [searchParams]);
+
+	const today = useMemo(() => formatNYDate(new Date()), []);
+	const isToday = selectedDate === today;
+
 	const [points, setPoints] = useState<DayPoint[]>([]);
 	const [tab, setTab] = useState<"today" | "history">("today");
 
-	const today = formatNYDate(new Date());
-	const [whoop, setWhoop] = useState<{ sleepHours: number | null; recovery: number | null } | null>(null);
+	const [whoopSelected, setWhoopSelected] = useState<{ sleepHours: number | null; recovery: number | null } | null>(
+		null
+	);
 
 	// History data (server snapshots)
 	const [historyRows, setHistoryRows] = useState<HistoryRow[]>([]);
 	const [historyLoading, setHistoryLoading] = useState(false);
 
-	// Fetch WHOOP sleep/recovery for today if connected
+	// Fetch WHOOP sleep/recovery for selected day
 	useEffect(() => {
 		(async () => {
 			try {
-				const cached = getWhoopMetrics(today);
-				if (cached) setWhoop({ sleepHours: cached.sleep_hours, recovery: cached.recovery_score });
-				const res = await fetch(`/api/whoop/metrics?date=${today}`, { credentials: "include" });
+				const cached = getWhoopMetrics(selectedDate);
+				if (cached) setWhoopSelected({ sleepHours: cached.sleep_hours, recovery: cached.recovery_score });
+
+				// Only attempt network fetch if viewing today (or if your API supports past days, you can remove this guard)
+				const res = await fetch(`/api/whoop/metrics?date=${selectedDate}`, { credentials: "include" });
 				if (res.ok) {
 					const j = await res.json();
-					setWhoopMetrics(today, { sleep_hours: j.sleep_hours ?? null, recovery_score: j.recovery_score ?? null });
-					setWhoop({ sleepHours: j.sleep_hours ?? null, recovery: j.recovery_score ?? null });
+					setWhoopMetrics(selectedDate, { sleep_hours: j.sleep_hours ?? null, recovery_score: j.recovery_score ?? null });
+					setWhoopSelected({ sleepHours: j.sleep_hours ?? null, recovery: j.recovery_score ?? null });
 				}
 			} catch {}
 		})();
-	}, [today]);
+	}, [selectedDate]);
 
-	// Load local-derived points (used for Today visuals + quick insights + time-of-day chart)
+	// Load local-derived points (used for History heatmap + quick insights charts)
 	useEffect(() => {
 		const prof = getProfile();
 		const weight = prof?.weight_kg ?? 0;
@@ -150,8 +170,8 @@ export default function InsightsPage() {
 					const start = new Date(w.start_time);
 					const end = w.end_time ? new Date(w.end_time) : start;
 					const mins = Math.max(0, Math.round((end.getTime() - start.getTime()) / 60000));
-					const intensity = typeof w.intensity === "number" ? w.intensity : 5;
-					const intensityFactor = 0.5 + intensity / 10;
+					const strain = typeof w.intensity === "number" ? Math.max(0, Math.min(21, w.intensity)) : 5;
+					const intensityFactor = 0.5 + strain / 21;
 					return sum + mins * WORKOUT_ML_PER_MIN * intensityFactor;
 				}, 0);
 				target = Math.round(weight * 35 + workoutAdj);
@@ -188,14 +208,14 @@ export default function InsightsPage() {
 		})();
 	}, [tab, historyRows.length]);
 
-	// Breakdown of today's target: base + workouts + creatine (+ WHOOP modifiers)
-	const todayBreakdown = useMemo(() => {
+	// Breakdown of selected day's target: base + workouts + creatine (+ WHOOP modifiers)
+	const dayBreakdown = useMemo(() => {
 		const prof = getProfile();
 		const weight = prof?.weight_kg ?? 0;
 		if (weight <= 0) return null;
 
-		const workouts = getWorkoutsByDateNY(today);
-		const supplements = getSupplementsByDateNY(today);
+		const workouts = getWorkoutsByDateNY(selectedDate);
+		const supplements = getSupplementsByDateNY(selectedDate);
 
 		const base = Math.round(weight * BASE_ML_PER_KG);
 
@@ -222,18 +242,18 @@ export default function InsightsPage() {
 		// WHOOP modifiers (bounded, transparent)
 		let modPct = 0;
 
-		if (whoop?.sleepHours != null) {
-			const h = whoop.sleepHours;
+		if (whoopSelected?.sleepHours != null) {
+			const h = whoopSelected.sleepHours;
 			let sAdj = 0;
-			if (h < 7.5) sAdj = Math.max(0, (7.5 - h)) * 0.03; // +3% per hour below 7.5
-			else if (h > 8.5) sAdj = -Math.max(0, (h - 8.5)) * 0.02; // -2% per hour above 8.5
+			if (h < 7.5) sAdj = Math.max(0, (7.5 - h)) * 0.03;
+			else if (h > 8.5) sAdj = -Math.max(0, (h - 8.5)) * 0.02;
 			modPct += sAdj;
 			lines.push({ label: `Sleep (${h.toFixed(1)} h)`, added: Math.round(baseTarget * sAdj) });
 		}
 
-		if (whoop?.recovery != null) {
+		if (whoopSelected?.recovery != null) {
 			let rAdj = 0;
-			const r = whoop.recovery;
+			const r = whoopSelected.recovery;
 			if (r < 33) rAdj = 0.05;
 			else if (r < 66) rAdj = 0.02;
 			modPct += rAdj;
@@ -242,47 +262,71 @@ export default function InsightsPage() {
 
 		const total = Math.round(baseTarget + baseTarget * modPct);
 		return { lines, total };
-	}, [today, whoop]);
+	}, [selectedDate, whoopSelected]);
 
-	// Quick insight cards (Today)
+	const selectedTotals = useMemo(() => {
+		const intakes = getIntakesByDateNY(selectedDate);
+		const actual = intakes.reduce((s, i) => s + i.volume_ml, 0);
+		const target = dayBreakdown?.total ?? 0;
+		const score =
+			target > 0
+				? calculateHydrationScore({
+						targetMl: target,
+						actualMl: actual,
+						intakes: intakes.map((i) => ({ timestamp: new Date(i.timestamp), volumeMl: i.volume_ml })),
+						workouts: [],
+				  })
+				: 0;
+		return { actual, target, score };
+	}, [selectedDate, dayBreakdown]);
+
+	// Quick insight cards (Selected day)
 	const quick = useMemo(() => {
-		if (points.length === 0) return [];
 		const messages: { title: string; body: string }[] = [];
 
-		const last = points[points.length - 1];
-		const tgt = todayBreakdown?.total ?? last.target;
-		const deficit = tgt > 0 ? tgt - last.actual : 0;
-
-		if (deficit > 0) messages.push({ title: "Hydration pacing", body: `You're ~${Math.round(deficit / 29.5735)} oz behind target today.` });
-		else messages.push({ title: "Hydration pacing", body: "You're on pace or ahead of today's target." });
-
-		const last7 = points.slice(-7);
-		let morning = 0, afternoon = 0, evening = 0;
-		last7.forEach((p) => {
-			const ints = getIntakesByDateNY(p.date);
-			ints.forEach((i) => {
-				const hr = new Date(i.timestamp).getHours();
-				if (hr < 12) morning += i.volume_ml;
-				else if (hr < 18) afternoon += i.volume_ml;
-				else evening += i.volume_ml;
-			});
-		});
-		const total = morning + afternoon + evening;
-		if (total > 0) {
-			const top = Math.max(morning, afternoon, evening);
-			const bucket = top === morning ? "mornings" : top === afternoon ? "afternoons" : "evenings";
-			messages.push({ title: "Behavior pattern (7d)", body: `Most intake happens in the ${bucket}. Try front-loading on workout days.` });
+		const deficit = Math.max(0, selectedTotals.target - selectedTotals.actual);
+		if (selectedTotals.target > 0) {
+			if (deficit > 0) messages.push({ title: "Hydration pacing", body: `You're ~${Math.round(deficit / 29.5735)} oz behind target.` });
+			else messages.push({ title: "Hydration pacing", body: "You're on pace or ahead of target." });
 		}
 
-		if (whoop?.sleepHours != null || whoop?.recovery != null) {
+		// WHOOP synergy
+		if (whoopSelected?.sleepHours != null || whoopSelected?.recovery != null) {
 			const parts: string[] = [];
-			if (whoop.sleepHours != null) parts.push(`sleep ${whoop.sleepHours.toFixed(1)} h`);
-			if (whoop.recovery != null) parts.push(`recovery ${Math.round(whoop.recovery)}%`);
-			messages.push({ title: "WHOOP synergy", body: `Target accounts for ${parts.join(", ")} today.` });
+			if (whoopSelected.sleepHours != null) parts.push(`sleep ${whoopSelected.sleepHours.toFixed(1)} h`);
+			if (whoopSelected.recovery != null) parts.push(`recovery ${Math.round(whoopSelected.recovery)}%`);
+			messages.push({ title: "WHOOP synergy", body: `Target accounts for ${parts.join(", ")} for this day.` });
 		}
+
+		// Behavior pattern (7d) anchored around selected date: use last 7 days ending at selectedDate
+		try {
+			const d = new Date(selectedDate + "T12:00:00.000Z");
+			const dates7: string[] = [];
+			for (let i = 6; i >= 0; i--) {
+				const dd = new Date(d);
+				dd.setUTCDate(d.getUTCDate() - i);
+				dates7.push(dd.toISOString().slice(0, 10));
+			}
+			let morning = 0, afternoon = 0, evening = 0;
+			dates7.forEach((day) => {
+				const ints = getIntakesByDateNY(day);
+				ints.forEach((i) => {
+					const hr = new Date(i.timestamp).getHours();
+					if (hr < 12) morning += i.volume_ml;
+					else if (hr < 18) afternoon += i.volume_ml;
+					else evening += i.volume_ml;
+				});
+			});
+			const total = morning + afternoon + evening;
+			if (total > 0) {
+				const top = Math.max(morning, afternoon, evening);
+				const bucket = top === morning ? "mornings" : top === afternoon ? "afternoons" : "evenings";
+				messages.push({ title: "Behavior pattern (7d)", body: `Most intake happens in the ${bucket} (last 7 days).` });
+			}
+		} catch {}
 
 		return messages.slice(0, 5);
-	}, [points, todayBreakdown, whoop]);
+	}, [selectedTotals, whoopSelected, selectedDate]);
 
 	// Correlations from server history snapshots
 	const historyCorr = useMemo(() => {
@@ -304,57 +348,69 @@ export default function InsightsPage() {
 
 	return (
 		<div className="p-4">
-			<h1 className="text-xl font-semibold">Insights</h1>
+			<div className="mb-3">
+				<DateSwitcher />
+			</div>
 
-			{/* Today | History toggle */}
-			<div className="mt-3 flex items-center gap-2">
-				<TabPill label="Today" active={tab === "today"} onClick={() => setTab("today")} />
-				<TabPill label="History" active={tab === "history"} onClick={() => setTab("history")} />
+			<div className="flex items-start justify-between gap-3">
+				<div>
+					<h1 className="text-xl font-semibold">Insights</h1>
+					<p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+						Showing: <span className="font-medium">{selectedDate}</span>
+						{isToday ? " (Today)" : ""}
+					</p>
+				</div>
+
+				<div className="flex items-center gap-2">
+					<TabPill label="Today" active={tab === "today"} onClick={() => setTab("today")} />
+					<TabPill label="History" active={tab === "history"} onClick={() => setTab("history")} />
+				</div>
 			</div>
 
 			{tab === "today" ? (
 				<>
-					{/* Today gauge */}
 					<section className="mt-4">
-						<Card className="p-4 flex items-center gap-4">
+						<Card className="flex items-center gap-4 p-4">
 							<div className="w-[160px] shrink-0">
 								<RadialGauge
-									value={(() => {
-										const actual = points.length ? (points[points.length - 1].actual || 0) : 0;
-										const tgt = todayBreakdown?.total ?? (points.length ? (points[points.length - 1].target || 0) : 0);
-										return Math.min(1, actual / Math.max(1, tgt));
-									})()}
-									label="Today"
+									value={Math.min(1, selectedTotals.actual / Math.max(1, selectedTotals.target || 0))}
+									label={isToday ? "Today" : "Selected day"}
 								/>
 							</div>
+
 							<div className="text-sm text-zinc-600 dark:text-zinc-400">
 								<p>
 									Target:{" "}
-									<strong>
-										{(() => {
-											const tgt = todayBreakdown?.total ?? (points.length ? (points[points.length - 1].target || 0) : 0);
-											return Math.round(tgt / 29.5735);
-										})()}{" "}
-										oz
-									</strong>
+									<strong>{Math.round((selectedTotals.target || 0) / 29.5735)} oz</strong>
 								</p>
 								<p>
 									Actual:{" "}
-									<strong>
-										{points.length ? Math.round((points[points.length - 1].actual || 0) / 29.5735) : 0} oz
-									</strong>
+									<strong>{Math.round((selectedTotals.actual || 0) / 29.5735)} oz</strong>
 								</p>
+								<p>
+									Score:{" "}
+									<strong>{Math.round(selectedTotals.score)}</strong>
+								</p>
+
+								<div className="mt-2">
+									<button
+										type="button"
+										onClick={() => router.push(`/log?date=${selectedDate}`)}
+										className="rounded-xl border px-3 py-2 text-sm hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-900"
+									>
+										Log drink
+									</button>
+								</div>
 							</div>
 						</Card>
 					</section>
 
-					{/* Target drivers for Today */}
-					{todayBreakdown ? (
+					{dayBreakdown ? (
 						<section className="mt-4">
 							<Card className="p-4">
-								<p className="mb-2 text-sm text-zinc-600 dark:text-zinc-400">Today's target drivers</p>
+								<p className="mb-2 text-sm text-zinc-600 dark:text-zinc-400">Target drivers</p>
 								<ul className="space-y-1 text-sm">
-									{todayBreakdown.lines.map((l, i) => (
+									{dayBreakdown.lines.map((l, i) => (
 										<li key={i} className="flex items-center justify-between">
 											<span>{l.label}</span>
 											<span className="tabular-nums">{Math.round(l.added / 29.5735)} oz</span>
@@ -363,29 +419,21 @@ export default function InsightsPage() {
 								</ul>
 								<div className="mt-2 flex items-center justify-between border-t pt-2 text-sm">
 									<span className="font-medium">Total target</span>
-									<span className="tabular-nums font-medium">{Math.round(todayBreakdown.total / 29.5735)} oz</span>
+									<span className="tabular-nums font-medium">{Math.round(dayBreakdown.total / 29.5735)} oz</span>
 								</div>
 							</Card>
 						</section>
 					) : null}
 
-					{/* Today line chart */}
 					<section className="mt-4">
 						<Card className="p-4">
-							<p className="text-sm text-zinc-600 dark:text-zinc-400">Today: Cumulative intake vs linear target (oz)</p>
-							<TodayChart todayPoint={points.find((p) => p.date === formatNYDate(new Date())) || null} />
+							<p className="text-sm text-zinc-600 dark:text-zinc-400">
+								{isToday ? "Today" : "Selected day"}: Cumulative intake vs linear target (oz)
+							</p>
+							<TodayChart date={selectedDate} targetMl={selectedTotals.target} />
 						</Card>
 					</section>
 
-					{/* Time-of-day stacked bars (7d) */}
-					<section className="mt-4">
-						<Card className="p-4">
-							<p className="text-sm text-zinc-600 dark:text-zinc-400">Intake by time of day (last 7 days)</p>
-							<StackedBars points={points.slice(-7)} />
-						</Card>
-					</section>
-
-					{/* Quick cards */}
 					<section className="mt-4 space-y-2">
 						{quick.map((q, i) => (
 							<Card key={i} className="p-4">
@@ -402,7 +450,6 @@ export default function InsightsPage() {
 				</>
 			) : (
 				<>
-					{/* History */}
 					<section className="mt-4">
 						<Card className="p-4">
 							<p className="text-sm text-zinc-600 dark:text-zinc-400">Correlations (from saved daily history)</p>
@@ -425,13 +472,10 @@ export default function InsightsPage() {
 								) : null}
 							</div>
 
-							{historyLoading ? (
-								<p className="mt-3 text-sm text-zinc-500">Loading history…</p>
-							) : null}
+							{historyLoading ? <p className="mt-3 text-sm text-zinc-500">Loading history…</p> : null}
 						</Card>
 					</section>
 
-					{/* Heatmap from local points (nice visual even before server history fills in) */}
 					<section className="mt-4">
 						<Card className="p-4">
 							<p className="text-sm text-zinc-600 dark:text-zinc-400">Hydration Score (last 14 days)</p>
@@ -441,7 +485,6 @@ export default function InsightsPage() {
 						</Card>
 					</section>
 
-					{/* Table of saved history */}
 					<section className="mt-4">
 						<Card className="p-4">
 							<p className="text-sm text-zinc-600 dark:text-zinc-400">Saved history (last 60 days)</p>
@@ -465,7 +508,7 @@ export default function InsightsPage() {
 										return (
 											<div
 												key={r.day}
-												className="grid grid-cols-4 gap-2 rounded-lg border px-3 py-2 text-sm"
+												className="grid grid-cols-4 gap-2 rounded-lg border px-3 py-2 text-sm dark:border-zinc-800"
 											>
 												<div>{r.day}</div>
 												<div className="font-medium">{r.hydration_score}</div>
@@ -484,28 +527,45 @@ export default function InsightsPage() {
 	);
 }
 
-function TodayChart({ todayPoint }: { todayPoint: DayPoint | null }) {
-	if (!todayPoint) return <div className="h-40" />;
-	const w = 320, h = 140;
-	const leftPad = 38, pad = 16;
-	const startHr = 6, endHr = 21;
-	const today = formatNYDate(new Date());
-	const ints = getIntakesByDateNY(today).sort((a, b) => +new Date(a.timestamp) - +new Date(b.timestamp));
+function TodayChart({ date, targetMl }: { date: string; targetMl: number }) {
+	if (!date) return <div className="h-40" />;
+
+	const w = 320,
+		h = 140;
+	const leftPad = 38,
+		pad = 16;
+	const startHr = 6,
+		endHr = 21;
+
+	const ints = getIntakesByDateNY(date).sort((a, b) => +new Date(a.timestamp) - +new Date(b.timestamp));
 
 	const cumulative: { t: number; ml: number }[] = [];
 	let sum = 0;
+
+	// copy so we can shift safely
+	const queue = [...ints];
+
 	for (let hr = startHr; hr <= endHr; hr++) {
-		while (ints.length && new Date(ints[0].timestamp).getHours() <= hr) {
-			sum += ints.shift()!.volume_ml;
+		while (queue.length && new Date(queue[0].timestamp).getHours() <= hr) {
+			sum += queue.shift()!.volume_ml;
 		}
 		cumulative.push({ t: hr, ml: sum });
 	}
 
-	const maxY = Math.max(1, todayPoint.target, ...cumulative.map((c) => c.ml));
+	const maxY = Math.max(1, targetMl || 0, ...cumulative.map((c) => c.ml));
 	const scaleX = (t: number) => leftPad + ((t - startHr) / Math.max(1, endHr - startHr)) * (w - leftPad - pad);
 	const scaleY = (v: number) => h - pad - (v / maxY) * (h - pad * 2);
-	const line = (vals: { t: number; ml: number }[]) => vals.map((p, i) => `${i ? "L" : "M"} ${scaleX(p.t)} ${scaleY(p.ml)}`).join(" ");
-	const targetLine = (tgt: number) => line(cumulative.map((c, i) => ({ t: c.t, ml: (tgt / Math.max(1, cumulative.length - 1)) * i })));
+
+	const line = (vals: { t: number; ml: number }[]) =>
+		vals.map((p, i) => `${i ? "L" : "M"} ${scaleX(p.t)} ${scaleY(p.ml)}`).join(" ");
+
+	const targetLine = (tgt: number) =>
+		line(
+			cumulative.map((c, i) => ({
+				t: c.t,
+				ml: (tgt / Math.max(1, cumulative.length - 1)) * i,
+			}))
+		);
 
 	return (
 		<svg viewBox={`0 0 ${w} ${h}`} className="mt-3 h-44 w-full">
@@ -535,105 +595,9 @@ function TodayChart({ todayPoint }: { todayPoint: DayPoint | null }) {
 				</g>
 			))}
 
-			<path d={targetLine(todayPoint.target)} fill="none" stroke="#94a3b8" strokeWidth="2" />
+			<path d={targetLine(targetMl || 0)} fill="none" stroke="#94a3b8" strokeWidth="2" />
 			<path d={line(cumulative)} fill="none" stroke="#2563eb" strokeWidth="2" />
 		</svg>
-	);
-}
-
-function StackedBars({ points }: { points: DayPoint[] }) {
-	const days = points;
-	if (!days.length) return <div className="h-32" />;
-
-	const rows = days.map((p) => {
-		let m = 0, a = 0, e = 0;
-		const ints = getIntakesByDateNY(p.date);
-		ints.forEach((i) => {
-			const hr = new Date(i.timestamp).getHours();
-			if (hr < 12) m += i.volume_ml;
-			else if (hr < 18) a += i.volume_ml;
-			else e += i.volume_ml;
-		});
-		const total = m + a + e || 1;
-		return { date: p.date.slice(5), m: m / total, a: a / total, e: e / total };
-	});
-
-	const w = 340, h = 160, pad = 16, axisH = 18, leftPad = 38;
-	const barAreaH = h - pad * 2 - axisH;
-	const barW = (w - leftPad - pad) / Math.max(1, rows.length);
-
-	return (
-		<div className="mt-3">
-			<svg viewBox={`0 0 ${w} ${h}`} className="h-40 w-full">
-				<line x1={leftPad} y1={h - pad - axisH} x2={w - pad} y2={h - pad - axisH} stroke="#e5e7eb" />
-				<line x1={leftPad} y1={pad} x2={leftPad} y2={h - pad - axisH} stroke="#e5e7eb" />
-
-				{[0, 0.5, 1].map((p, i) => {
-					const y = pad + (1 - p) * barAreaH;
-					const label = Math.round(p * 100);
-					return (
-						<g key={i}>
-							<line x1={leftPad - 4} y1={y} x2={w - pad} y2={y} stroke="#f1f5f9" />
-							<text x={leftPad - 6} y={y + 3} textAnchor="end" fontSize="10" fill="#64748b">
-								{label}%
-							</text>
-						</g>
-					);
-				})}
-
-				{rows.map((r, i) => {
-					const x = leftPad + i * barW;
-					const mH = r.m * barAreaH;
-					const aH = r.a * barAreaH;
-					const eH = r.e * barAreaH;
-					let y = h - pad - axisH;
-					const cx = x + (barW - 4) / 2;
-					return (
-						<g key={i}>
-							<rect x={x + 2} y={(y -= mH)} width={barW - 4} height={mH} fill="#60a5fa" rx="2" />
-							{mH >= 14 && (
-								<text x={cx} y={y + mH / 2 + 4} textAnchor="middle" fontSize="9" fill="#0b1324">
-									{Math.round(r.m * 100)}%
-								</text>
-							)}
-
-							<rect x={x + 2} y={(y -= aH)} width={barW - 4} height={aH} fill="#34d399" rx="2" />
-							{aH >= 14 && (
-								<text x={cx} y={y + aH / 2 + 4} textAnchor="middle" fontSize="9" fill="#0b1324">
-									{Math.round(r.a * 100)}%
-								</text>
-							)}
-
-							<rect x={x + 2} y={(y -= eH)} width={barW - 4} height={eH} fill="#fbbf24" rx="2" />
-							{eH >= 14 && (
-								<text x={cx} y={y + eH / 2 + 4} textAnchor="middle" fontSize="9" fill="#0b1324">
-									{Math.round(r.e * 100)}%
-								</text>
-							)}
-
-							<text x={cx} y={h - pad + 12 - axisH} textAnchor="middle" fontSize="10" fill="#6b7280">
-								{r.date}
-							</text>
-						</g>
-					);
-				})}
-			</svg>
-
-			<div className="mt-2 flex items-center gap-4 text-xs text-zinc-600 dark:text-zinc-400">
-				<span className="inline-flex items-center gap-1">
-					<span className="inline-block h-2 w-3 rounded-sm" style={{ background: "#60a5fa" }} />
-					Morning
-				</span>
-				<span className="inline-flex items-center gap-1">
-					<span className="inline-block h-2 w-3 rounded-sm" style={{ background: "#34d399" }} />
-					Afternoon
-				</span>
-				<span className="inline-flex items-center gap-1">
-					<span className="inline-block h-2 w-3 rounded-sm" style={{ background: "#fbbf24" }} />
-					Evening
-				</span>
-			</div>
-		</div>
 	);
 }
 
