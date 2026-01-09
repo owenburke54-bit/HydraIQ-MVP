@@ -1,45 +1,64 @@
 "use client";
 
-import { useMemo } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { formatNYDate } from "@/lib/localStore";
 
-function isISODate(v: unknown): v is string {
-  return typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v);
+function isISODate(v: string | null) {
+  return !!v && /^\d{4}-\d{2}-\d{2}$/.test(v);
 }
 
-// Add days to an ISO date using UTC-safe math (avoids DST edge cases)
 function addDaysISO(iso: string, delta: number) {
-  const [y, m, d] = iso.split("-").map(Number);
-  const baseUtc = Date.UTC(y, m - 1, d);
-  const next = new Date(baseUtc + delta * 24 * 60 * 60 * 1000);
-  return next.toISOString().slice(0, 10);
+  const d = new Date(iso + "T00:00:00.000Z");
+  d.setUTCDate(d.getUTCDate() + delta);
+  return d.toISOString().slice(0, 10);
+}
+
+function getSearchString() {
+  if (typeof window === "undefined") return "";
+  return window.location.search || "";
 }
 
 export default function DateSwitcher() {
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
 
   const todayISO = useMemo(() => formatNYDate(new Date()), []);
 
-  // Always a string (never null)
-  const selectedDate: string = useMemo(() => {
-    const q = searchParams.get("date"); // string | null
-    return isISODate(q) ? q : todayISO;
-  }, [searchParams, todayISO]);
+  // We keep our own copy of the URL search string so we don't need useSearchParams()
+  const [search, setSearch] = useState<string>(() => getSearchString());
+
+  useEffect(() => {
+    // Keep in sync when the user uses back/forward
+    const onPop = () => setSearch(getSearchString());
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
+  const selectedDate = useMemo(() => {
+    const params = new URLSearchParams(search);
+    const q = params.get("date");
+    return isISODate(q) ? (q as string) : todayISO;
+  }, [search, todayISO]);
 
   function go(nextISO: string) {
-    const params = new URLSearchParams(searchParams.toString());
+    // Build next URL using current search params
+    const params = new URLSearchParams(search);
     params.set("date", nextISO);
-    router.push(`${pathname}?${params.toString()}`);
+
+    const qs = params.toString();
+    const nextUrl = qs ? `${pathname}?${qs}` : pathname;
+
+    router.push(nextUrl);
+    // update local search state immediately so label/buttons update instantly
+    setSearch(qs ? `?${qs}` : "");
   }
 
-  const label = useMemo(() => {
+  const label = (() => {
     if (selectedDate === todayISO) return "Today";
     if (selectedDate === addDaysISO(todayISO, -1)) return "Yesterday";
     return selectedDate;
-  }, [selectedDate, todayISO]);
+  })();
 
   const prev = addDaysISO(selectedDate, -1);
   const next = addDaysISO(selectedDate, +1);
@@ -61,7 +80,6 @@ export default function DateSwitcher() {
         onClick={() => go(todayISO)}
         className="flex-1 rounded-xl border px-3 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-900"
         aria-label="Jump to today"
-        title="Jump to today"
       >
         {label}
       </button>
@@ -70,7 +88,7 @@ export default function DateSwitcher() {
         type="button"
         disabled={nextDisabled}
         onClick={() => go(next)}
-        className="rounded-xl border px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-900"
+        className="rounded-xl border px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50 disabled:opacity-40 dark:border-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-900"
         aria-label="Next day"
       >
         →
