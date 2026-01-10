@@ -185,8 +185,8 @@ export default function Home() {
   }, [selectedDate, isToday]);
 
   return (
-    <div className="p-4">
-      {/* Date toggle belongs ONLY in the TopBar now — removed DateSwitcher from page */}
+    // ✅ Reserve space for fixed/sticky TopBar so content isn't hidden underneath it
+    <div className="px-4 pb-4 pt-[calc(124px+env(safe-area-inset-top))]">
       <div className="mb-3">
         {!isToday ? (
           <p className="text-xs text-zinc-500 dark:text-zinc-400">

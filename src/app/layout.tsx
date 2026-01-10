@@ -56,8 +56,11 @@ export default function RootLayout({
           <TopBar />
         </Suspense>
 
-        <div className="mx-auto flex min-h-screen max-w-[420px] flex-col text-zinc-900 dark:text-zinc-100 pt-14">
-          <main className="flex-1 overflow-x-hidden pb-[88px] px-4">{children}</main>
+        {/* Reserve space for the fixed TopBar + iOS safe area so content isn't hidden underneath */}
+        <div className="mx-auto flex min-h-screen max-w-[420px] flex-col text-zinc-900 dark:text-zinc-100">
+          <main className="flex-1 overflow-x-hidden px-4 pb-[88px] pt-[calc(56px+env(safe-area-inset-top))]">
+            {children}
+          </main>
         </div>
 
         <BottomNav />
