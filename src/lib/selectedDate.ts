@@ -8,7 +8,7 @@ export function isoDate(d: Date) {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
-  return ${y}-${m}-${day};
+  return `${y}-${m}-${day}`;
 }
 
 export function isISODate(v: string | null | undefined) {
@@ -22,7 +22,7 @@ export function clampISODate(v: string) {
 
 export function addDays(iso: string, delta: number) {
   // Use UTC so the YYYY-MM-DD math is stable
-  const d = new Date(${iso}T00:00:00.000Z);
+  const d = new Date(`${iso}T00:00:00.000Z`);
   d.setUTCDate(d.getUTCDate() + delta);
   return d.toISOString().slice(0, 10);
 }
@@ -41,7 +41,7 @@ export function buildUrlWithDate(pathname: string, nextISO: string) {
       : new URLSearchParams();
   sp.set("date", nextISO);
   const qs = sp.toString();
-  return qs ? ${pathname}?${qs} : pathname;
+  return qs ? `${pathname}?${qs}` : pathname;
 }
 
 /**
