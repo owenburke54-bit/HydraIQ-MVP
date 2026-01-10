@@ -185,16 +185,15 @@ export default function Home() {
   }, [selectedDate, isToday]);
 
   return (
-    // ✅ Reserve space for fixed/sticky TopBar so content isn't hidden underneath it
-    <div className="px-4 pb-4 pt-[calc(124px+env(safe-area-inset-top))]">
-      <div className="mb-3">
-        {!isToday ? (
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            Viewing <span className="font-medium">{selectedDate}</span>. Use Log/Workouts to add or edit
-            for this day.
-          </p>
-        ) : null}
-      </div>
+    // ✅ Keep this tight — TopBar spacing should be handled globally (layout).
+    // If layout spacing isn't working yet, this still avoids the giant gap.
+    <div className="px-4 pb-4 pt-2">
+      {!isToday ? (
+        <p className="mb-3 text-xs text-zinc-500 dark:text-zinc-400">
+          Viewing <span className="font-medium">{selectedDate}</span>. Use Log/Workouts to add or edit for
+          this day.
+        </p>
+      ) : null}
 
       <HydrationScoreCard score={state.score} />
       <HydrationProgressBar actualMl={state.actual} targetMl={state.target} />
@@ -229,13 +228,14 @@ export default function Home() {
                 isToday ? (
                   <p>
                     Drink {mounted ? nowOz : Math.max(6, Math.min(20, Math.round(deficitOz * 0.5)))} oz now,
-                    then {mounted ? perHour : Math.max(4, Math.round(deficitOz * 0.5 / Math.max(1, 4)))} oz
-                    each hour until ~9pm.
+                    then{" "}
+                    {mounted ? perHour : Math.max(4, Math.round(deficitOz * 0.5 / Math.max(1, 4)))} oz each
+                    hour until ~9pm.
                   </p>
                 ) : (
                   <p>
-                    You finished <strong>{Math.round(deficitMl / 29.5735)} oz</strong> below your target
-                    for this day.
+                    You finished <strong>{Math.round(deficitMl / 29.5735)} oz</strong> below your target for
+                    this day.
                   </p>
                 )
               ) : (
@@ -243,9 +243,7 @@ export default function Home() {
               )}
 
               {isToday ? (
-                <p className="mt-1 text-xs opacity-80">
-                  Tip: small sips every ~20–30 min are easier than big chugs.
-                </p>
+                <p className="mt-1 text-xs opacity-80">Tip: small sips every ~20–30 min are easier than big chugs.</p>
               ) : null}
 
               {mounted ? (
@@ -263,11 +261,11 @@ export default function Home() {
           );
         })()}
 
-        {(state.flags || { creatine: false }).creatine ? (
-          <p className="mt-2 text-xs opacity-80">
-            Creatine increases your target slightly — aim to spread fluids through the day.
-          </p>
-        ) : null}
+      {(state.flags || { creatine: false }).creatine ? (
+        <p className="mt-2 text-xs opacity-80">
+          Creatine increases your target slightly — aim to spread fluids through the day.
+        </p>
+      ) : null}
       </Card>
 
       <section className="mb-20">
