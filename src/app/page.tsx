@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import HydrationScoreCard from "../components/HydrationScoreCard";
 import HydrationProgressBar from "../components/HydrationProgressBar";
 import { Card } from "../components/ui/Card";
-import DateSwitcher from "../components/DateSwitcher";
 import {
   getIntakesByDateNY,
   getProfile,
@@ -187,10 +186,10 @@ export default function Home() {
 
   return (
     <div className="p-4">
+      {/* Date toggle belongs ONLY in the TopBar now — removed DateSwitcher from page */}
       <div className="mb-3">
-        <DateSwitcher />
         {!isToday ? (
-          <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
             Viewing <span className="font-medium">{selectedDate}</span>. Use Log/Workouts to add or edit
             for this day.
           </p>

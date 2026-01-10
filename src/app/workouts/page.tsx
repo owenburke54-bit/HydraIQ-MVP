@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import Button from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
-import DateSwitcher from "../../components/DateSwitcher";
 import {
   addWorkout,
   getWorkoutsByDateNY,
@@ -101,11 +100,17 @@ export default function WorkoutsPage() {
 
   return (
     <div className="p-4">
-      <div className="mb-3">
-        <DateSwitcher />
-      </div>
+      {/* Date toggle belongs ONLY in the TopBar now — removed DateSwitcher from page */}
 
-      <h1 className="text-xl font-semibold">Workouts</h1>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold">Workouts</h1>
+          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+            Showing: <span className="font-medium">{selectedDate}</span>
+            {isToday ? " (Today)" : ""}
+          </p>
+        </div>
+      </div>
 
       <Card className="mt-4 overflow-hidden">
         <button

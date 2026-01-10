@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { Card } from "../../components/ui/Card";
 import RadialGauge from "../../components/charts/RadialGauge";
 import CalendarHeatmap from "../../components/charts/CalendarHeatmap";
-import DateSwitcher from "../../components/DateSwitcher";
 import {
   calculateHydrationScore,
   WORKOUT_ML_PER_MIN,
@@ -193,14 +192,9 @@ export default function InsightsPage() {
         const workoutAdj = workouts.reduce((sum, w) => {
           const start = new Date(w.start_time);
           const end = w.end_time ? new Date(w.end_time) : start;
-          const mins = Math.max(
-            0,
-            Math.round((end.getTime() - start.getTime()) / 60000)
-          );
+          const mins = Math.max(0, Math.round((end.getTime() - start.getTime()) / 60000));
           const strain =
-            typeof w.intensity === "number"
-              ? Math.max(0, Math.min(21, w.intensity))
-              : 5;
+            typeof w.intensity === "number" ? Math.max(0, Math.min(21, w.intensity)) : 5;
           const intensityFactor = 0.5 + strain / 21;
           return sum + mins * WORKOUT_ML_PER_MIN * intensityFactor;
         }, 0);
@@ -261,14 +255,9 @@ export default function InsightsPage() {
     const workoutLines = workouts.map((w) => {
       const start = new Date(w.start_time);
       const end = w.end_time ? new Date(w.end_time) : start;
-      const mins = Math.max(
-        0,
-        Math.round((end.getTime() - start.getTime()) / 60000)
-      );
+      const mins = Math.max(0, Math.round((end.getTime() - start.getTime()) / 60000));
       const strain =
-        typeof w.intensity === "number"
-          ? Math.max(0, Math.min(21, w.intensity))
-          : 5;
+        typeof w.intensity === "number" ? Math.max(0, Math.min(21, w.intensity)) : 5;
       const intensityFactor = 0.5 + strain / 21;
       const added = Math.round(mins * WORKOUT_ML_PER_MIN * intensityFactor);
       const label = `${formatType(w.type)} • ${mins} min`;
@@ -293,8 +282,8 @@ export default function InsightsPage() {
     if (whoopSelected?.sleepHours != null) {
       const h = whoopSelected.sleepHours;
       let sAdj = 0;
-      if (h < 7.5) sAdj = Math.max(0, (7.5 - h)) * 0.03;
-      else if (h > 8.5) sAdj = -Math.max(0, (h - 8.5)) * 0.02;
+      if (h < 7.5) sAdj = Math.max(0, 7.5 - h) * 0.03;
+      else if (h > 8.5) sAdj = -Math.max(0, h - 8.5) * 0.02;
       modPct += sAdj;
       lines.push({
         label: `Sleep (${h.toFixed(1)} h)`,
@@ -355,10 +344,8 @@ export default function InsightsPage() {
 
     if (whoopSelected?.sleepHours != null || whoopSelected?.recovery != null) {
       const parts: string[] = [];
-      if (whoopSelected.sleepHours != null)
-        parts.push(`sleep ${whoopSelected.sleepHours.toFixed(1)} h`);
-      if (whoopSelected.recovery != null)
-        parts.push(`recovery ${Math.round(whoopSelected.recovery)}%`);
+      if (whoopSelected.sleepHours != null) parts.push(`sleep ${whoopSelected.sleepHours.toFixed(1)} h`);
+      if (whoopSelected.recovery != null) parts.push(`recovery ${Math.round(whoopSelected.recovery)}%`);
       messages.push({
         title: "WHOOP synergy",
         body: `Target accounts for ${parts.join(", ")} for this day.`,
@@ -391,8 +378,7 @@ export default function InsightsPage() {
       const total = morning + afternoon + evening;
       if (total > 0) {
         const top = Math.max(morning, afternoon, evening);
-        const bucket =
-          top === morning ? "mornings" : top === afternoon ? "afternoons" : "evenings";
+        const bucket = top === morning ? "mornings" : top === afternoon ? "afternoons" : "evenings";
         messages.push({
           title: "Behavior pattern (7d)",
           body: `Most intake happens in the ${bucket} (last 7 days).`,
@@ -423,9 +409,7 @@ export default function InsightsPage() {
 
   return (
     <div className="p-4">
-      <div className="mb-3">
-        <DateSwitcher />
-      </div>
+      {/* Date toggle belongs ONLY in the TopBar now — removed DateSwitcher from page */}
 
       <div className="flex items-start justify-between gap-3">
         <div>
@@ -491,9 +475,7 @@ export default function InsightsPage() {
                 </ul>
                 <div className="mt-2 flex items-center justify-between border-t pt-2 text-sm">
                   <span className="font-medium">Total target</span>
-                  <span className="tabular-nums font-medium">
-                    {Math.round(dayBreakdown.total / 29.5735)} oz
-                  </span>
+                  <span className="tabular-nums font-medium">{Math.round(dayBreakdown.total / 29.5735)} oz</span>
                 </div>
               </Card>
             </section>
@@ -526,7 +508,9 @@ export default function InsightsPage() {
         <>
           <section className="mt-4">
             <Card className="p-4">
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">Correlations (from saved daily history)</p>
+              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                Correlations (from saved daily history)
+              </p>
 
               <div className="mt-2 flex items-center gap-3">
                 {historyCorr.sleep == null ? null : (
@@ -611,9 +595,7 @@ function TodayChart({ date, targetMl }: { date: string; targetMl: number }) {
   const startHr = 6,
     endHr = 21;
 
-  const ints = getIntakesByDateNY(date).sort(
-    (a, b) => +new Date(a.timestamp) - +new Date(b.timestamp)
-  );
+  const ints = getIntakesByDateNY(date).sort((a, b) => +new Date(a.timestamp) - +new Date(b.timestamp));
 
   const cumulative: { t: number; ml: number }[] = [];
   let sum = 0;

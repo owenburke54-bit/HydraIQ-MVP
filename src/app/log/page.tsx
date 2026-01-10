@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Button from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
-import DateSwitcher from "../../components/DateSwitcher";
 import { addIntake, formatNYDate } from "../../lib/localStore";
 import { readSelectedDateFromLocation, isISODate } from "@/lib/selectedDate";
 
@@ -87,9 +86,7 @@ export default function LogPage() {
   ];
 
   function toggleSupp(key: SuppKey) {
-    setSupplements((prev) =>
-      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
-    );
+    setSupplements((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
   }
 
   // Ensure the datetime-local stays on the selected date unless the user intentionally changes it
@@ -104,17 +101,20 @@ export default function LogPage() {
 
   return (
     <div className="p-4">
-      <div className="mb-3">
-        <DateSwitcher />
-      </div>
+      {/* Date toggle belongs ONLY in the TopBar now — removed DateSwitcher from page */}
 
-      <h1 className="text-xl font-semibold">Log Drink</h1>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold">Log Drink</h1>
+          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+            Saving to <span className="font-medium">{selectedDate}</span>
+          </p>
+        </div>
+      </div>
 
       <Card className="mt-4 space-y-4 p-4">
         <div>
-          <label className="mb-2 block text-sm text-zinc-600 dark:text-zinc-300">
-            Volume (oz)
-          </label>
+          <label className="mb-2 block text-sm text-zinc-600 dark:text-zinc-300">Volume (oz)</label>
           <input
             type="number"
             inputMode="numeric"
@@ -158,9 +158,7 @@ export default function LogPage() {
         </div>
 
         <div>
-          <label className="mb-2 block text-sm text-zinc-600 dark:text-zinc-300">
-            Supplements
-          </label>
+          <label className="mb-2 block text-sm text-zinc-600 dark:text-zinc-300">Supplements</label>
           <div className="grid grid-cols-2 gap-2">
             {suppOptions.map((opt) => (
               <button
@@ -203,9 +201,6 @@ export default function LogPage() {
             onChange={(e) => setTime(coerceTimeToSelectedDate(e.target.value))}
             className="w-full rounded-xl border border-zinc-200 bg-white p-3 text-base outline-none ring-blue-500 focus:ring-2 dark:border-zinc-800 dark:bg-zinc-900"
           />
-          <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-            Saving to <span className="font-medium">{selectedDate}</span>
-          </p>
         </div>
 
         <Button
