@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Button from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
-import { addIntake, formatNYDate } from "../../lib/localStore";
-import { readSelectedDateFromLocation, isISODate } from "@/lib/selectedDate";
+import { addIntake } from "../../lib/localStore";
+import PageShell from "../../components/PageShell";
+import { useSelectedISODate } from "@/lib/selectedDate";
 
 type SuppKey =
   | "creatine"
@@ -22,9 +23,8 @@ function pad2(n: number) {
 }
 
 // Build a datetime-local string for a given ISO date in local time
-function defaultTimeForDate(isoDate: string) {
+function defaultTimeForDate(isoDate: string, todayIso: string) {
   const now = new Date();
-  const todayIso = formatNYDate(now);
 
   // If viewing today: default to current local time
   if (isoDate === todayIso) {
@@ -40,25 +40,11 @@ function defaultTimeForDate(isoDate: string) {
 
 export default function LogPage() {
   const router = useRouter();
-
-  const todayISO = useMemo(() => formatNYDate(new Date()), []);
-
-  // ✅ No useSearchParams() (avoids /_not-found Suspense build failures)
-  const [selectedDate, setSelectedDate] = useState<string>(todayISO);
-
-  useEffect(() => {
-    const sync = () => {
-      const iso = readSelectedDateFromLocation(todayISO);
-      setSelectedDate(isISODate(iso) ? iso : todayISO);
-    };
-    sync();
-    window.addEventListener("popstate", sync);
-    return () => window.removeEventListener("popstate", sync);
-  }, [todayISO]);
+  const { todayISO, selectedDate } = useSelectedISODate();
 
   const [volume, setVolume] = useState<number | "">("");
   const [type, setType] = useState<DrinkType>("water");
-  const [time, setTime] = useState<string>(() => defaultTimeForDate(todayISO));
+  const [time, setTime] = useState<string>(() => defaultTimeForDate(todayISO, todayISO));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [supplements, setSupplements] = useState<SuppKey[]>([]);
@@ -66,8 +52,8 @@ export default function LogPage() {
 
   // When the selected day changes, reset the default time to that day.
   useEffect(() => {
-    setTime(defaultTimeForDate(selectedDate));
-  }, [selectedDate]);
+    setTime(defaultTimeForDate(selectedDate, todayISO));
+  }, [selectedDate, todayISO]);
 
   const quicks = [
     { label: "8 oz", oz: 8 },
@@ -86,7 +72,9 @@ export default function LogPage() {
   ];
 
   function toggleSupp(key: SuppKey) {
-    setSupplements((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
+    setSupplements((prev) =>
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
+    );
   }
 
   // Ensure the datetime-local stays on the selected date unless the user intentionally changes it
@@ -100,10 +88,8 @@ export default function LogPage() {
   }
 
   return (
-    // Match Home/Profile spacing so content clears the fixed TopBar, without a huge gap.
-    <div className="px-4 pb-4 pt-[calc(72px+env(safe-area-inset-top))]">
+    <PageShell>
       {/* Date toggle belongs ONLY in the TopBar now — removed DateSwitcher from page */}
-
       <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold">Log Drink</h1>
@@ -242,6 +228,6 @@ export default function LogPage() {
 
         {error ? <p className="pt-2 text-center text-sm text-red-600">{error}</p> : null}
       </Card>
-    </div>
+    </PageShell>
   );
 }

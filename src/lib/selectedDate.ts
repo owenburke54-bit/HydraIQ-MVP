@@ -3,12 +3,17 @@
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
+const NY_TZ = "America/New_York";
+
+// NY date -> YYYY-MM-DD
 export function isoDate(d: Date) {
-  // Local date -> YYYY-MM-DD
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+  // en-CA reliably formats as YYYY-MM-DD
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: NY_TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
 }
 
 export function isISODate(v: string | null | undefined) {
@@ -16,12 +21,12 @@ export function isISODate(v: string | null | undefined) {
 }
 
 export function clampISODate(v: string) {
-  // simple guard; keep as-is if valid else today
+  // guard; keep as-is if valid else NY-today
   return isISODate(v) ? v : isoDate(new Date());
 }
 
 export function addDays(iso: string, delta: number) {
-  // Use UTC so the YYYY-MM-DD math is stable
+  // Stable day math using UTC anchor
   const d = new Date(`${iso}T00:00:00.000Z`);
   d.setUTCDate(d.getUTCDate() + delta);
   return d.toISOString().slice(0, 10);
@@ -46,7 +51,7 @@ export function buildUrlWithDate(pathname: string, nextISO: string) {
 
 /**
  * Client hook that reads/writes ?date=YYYY-MM-DD without useSearchParams().
- * Safe for prerender /_not-found (no suspense required).
+ * NY-based "today" + selectedDate. Safe for prerender /_not-found.
  */
 export function useSelectedISODate() {
   const router = useRouter();
@@ -55,7 +60,6 @@ export function useSelectedISODate() {
   const todayISO = useMemo(() => isoDate(new Date()), []);
   const [selectedDate, setSelectedDate] = useState<string>(todayISO);
 
-  // Read from URL on mount + on browser nav
   useEffect(() => {
     const sync = () => setSelectedDate(readSelectedDateFromLocation(todayISO));
     sync();

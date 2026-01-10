@@ -6,11 +6,11 @@ import { Card } from "../../components/ui/Card";
 import {
   addWorkout,
   getWorkoutsByDateNY,
-  formatNYDate,
   updateWorkout,
   deleteWorkout,
 } from "../../lib/localStore";
-import { readSelectedDateFromLocation, isISODate } from "@/lib/selectedDate";
+import PageShell from "../../components/PageShell";
+import { useSelectedISODate } from "@/lib/selectedDate";
 
 function pad2(n: number) {
   return String(n).padStart(2, "0");
@@ -23,9 +23,8 @@ function formatLocalInput(dt: Date) {
 }
 
 // Build a datetime-local default for selected ISO date
-function defaultStartForDate(isoDate: string) {
+function defaultStartForDate(isoDate: string, todayIso: string) {
   const now = new Date();
-  const todayIso = formatNYDate(now);
 
   // Today: now
   if (isoDate === todayIso) return formatLocalInput(now);
@@ -49,26 +48,15 @@ function coerceDateTimeToSelectedDate(value: string, selectedDate: string) {
 }
 
 export default function WorkoutsPage() {
-  const todayISO = useMemo(() => formatNYDate(new Date()), []);
-  const [selectedDate, setSelectedDate] = useState<string>(todayISO);
-
-  // ✅ No useSearchParams() (avoids /_not-found Suspense build failures)
-  useEffect(() => {
-    const sync = () => {
-      const iso = readSelectedDateFromLocation(todayISO);
-      setSelectedDate(isISODate(iso) ? iso : todayISO);
-    };
-    sync();
-    window.addEventListener("popstate", sync);
-    return () => window.removeEventListener("popstate", sync);
-  }, [todayISO]);
-
+  const { todayISO, selectedDate } = useSelectedISODate();
   const isToday = selectedDate === todayISO;
 
   const [open, setOpen] = useState(true);
   const [type, setType] = useState<string>("Run");
-  const [start, setStart] = useState<string>(() => defaultStartForDate(todayISO));
-  const [end, setEnd] = useState<string>(() => addHoursLocalInput(defaultStartForDate(todayISO), 1));
+  const [start, setStart] = useState<string>(() => defaultStartForDate(todayISO, todayISO));
+  const [end, setEnd] = useState<string>(() =>
+    addHoursLocalInput(defaultStartForDate(todayISO, todayISO), 1)
+  );
   const [endTouched, setEndTouched] = useState(false);
   const [intensity, setIntensity] = useState<number>(5);
   const [loading, setLoading] = useState(false);
@@ -77,13 +65,13 @@ export default function WorkoutsPage() {
 
   // When selected day changes, reset start/end defaults
   useEffect(() => {
-    const s = defaultStartForDate(selectedDate);
+    const s = defaultStartForDate(selectedDate, todayISO);
     setStart(s);
     setEnd(addHoursLocalInput(s, 1));
     setEndTouched(false);
     setMessage(null);
     setError(null);
-  }, [selectedDate]);
+  }, [selectedDate, todayISO]);
 
   const workoutsForDay = useMemo(() => getWorkoutsByDateNY(selectedDate), [selectedDate]);
 
@@ -99,8 +87,7 @@ export default function WorkoutsPage() {
   ];
 
   return (
-    // Match Home/Log spacing so content clears the fixed TopBar, without a huge gap.
-    <div className="px-4 pb-4 pt-[calc(72px+env(safe-area-inset-top))]">
+    <PageShell>
       {/* Date toggle belongs ONLY in the TopBar now — removed DateSwitcher from page */}
 
       <div className="flex items-start justify-between gap-3">
@@ -237,8 +224,10 @@ export default function WorkoutsPage() {
                       const type = a?.sport_name
                         ? `WHOOP • ${toTitleCase(String(a.sport_name))}`
                         : "WHOOP";
-                      const strain = typeof a?.score?.strain === "number" ? Number(a.score.strain) : null;
-                      const intensity = typeof strain === "number" ? Math.max(0, Math.min(21, strain)) : null;
+                      const strain =
+                        typeof a?.score?.strain === "number" ? Number(a.score.strain) : null;
+                      const intensity =
+                        typeof strain === "number" ? Math.max(0, Math.min(21, strain)) : null;
 
                       addWorkout({
                         type: String(type),
@@ -272,7 +261,7 @@ export default function WorkoutsPage() {
         {error ? <p className="pt-2 text-center text-sm text-red-600">{error}</p> : null}
         {message ? <p className="pt-2 text-center text-sm text-green-600">{message}</p> : null}
       </div>
-    </div>
+    </PageShell>
   );
 }
 

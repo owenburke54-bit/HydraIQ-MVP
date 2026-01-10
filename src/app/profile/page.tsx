@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getProfile, saveProfile } from "../../lib/localStore";
+import PageShell from "../../components/PageShell";
 
 type Units = "metric" | "imperial";
 type Sex = "male" | "female" | "other";
@@ -30,7 +31,6 @@ export default function ProfilePage() {
         setUnits(u);
 
         if (u === "imperial") {
-          // Convert back to ft'in and lbs for display
           if (p.height_cm) {
             const totalIn = Math.round((p.height_cm as number) / 2.54);
             const ft = Math.floor(totalIn / 12);
@@ -55,9 +55,15 @@ export default function ProfilePage() {
   }, []);
 
   return (
-    // Match Home spacing so content clears the fixed TopBar, without a huge gap.
-    <div className="px-4 pb-4 pt-[calc(72px+env(safe-area-inset-top))]">
-      <h1 className="text-xl font-semibold">Profile</h1>
+    <PageShell>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold">Profile</h1>
+          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+            Settings & data are stored locally on this device.
+          </p>
+        </div>
+      </div>
 
       <div className="mt-4 space-y-4">
         <div>
@@ -169,7 +175,6 @@ export default function ProfilePage() {
               type="button"
               className="rounded-xl border px-3 py-2 text-sm"
               onClick={() => {
-                // Export CSVs: intakes, workouts, supplements
                 const toCsv = (rows: string[][]) =>
                   rows
                     .map((r) =>
@@ -215,8 +220,8 @@ export default function ProfilePage() {
                   toCsv(
                     [["date", "start", "end", "type", "intensity", "duration_min"]].concat(
                       workouts.map((w: any) => {
-                        const s = new Date(w.start_time);
-                        const e = w.end_time ? new Date(w.end_time) : s;
+                        const s = new Date(w.start_time),
+                          e = w.end_time ? new Date(w.end_time) : s;
                         const mins = Math.max(0, Math.round((e.getTime() - s.getTime()) / 60000));
                         return [
                           s.toISOString().slice(0, 10),
@@ -276,7 +281,6 @@ export default function ProfilePage() {
             setError(null);
             setMessage(null);
             try {
-              // Save locally
               let height_cm: number | null = null;
               let weight_kg: number | null = null;
 
@@ -295,8 +299,6 @@ export default function ProfilePage() {
               }
 
               saveProfile({ name, sex, height_cm, weight_kg, units });
-
-              // Persist settings
               localStorage.setItem(
                 "hydra.settings",
                 JSON.stringify({ timezone: useEst ? "est" : "auto", units: unitsPref })
@@ -317,6 +319,6 @@ export default function ProfilePage() {
         {error ? <p className="text-center text-sm text-red-600">{error}</p> : null}
         {message ? <p className="text-center text-sm text-green-600">{message}</p> : null}
       </div>
-    </div>
+    </PageShell>
   );
 }

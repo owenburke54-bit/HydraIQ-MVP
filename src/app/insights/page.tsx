@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import PageShell from "../../components/PageShell";
 import { Card } from "../../components/ui/Card";
 import RadialGauge from "../../components/charts/RadialGauge";
 import CalendarHeatmap from "../../components/charts/CalendarHeatmap";
@@ -19,7 +20,7 @@ import {
   getWhoopMetrics,
   setWhoopMetrics,
 } from "../../lib/localStore";
-import { readSelectedDateFromLocation, isISODate } from "@/lib/selectedDate";
+import { useSelectedISODate } from "@/lib/selectedDate";
 
 type DayPoint = { date: string; score: number; target: number; actual: number };
 
@@ -117,23 +118,12 @@ function TabPill({
 export default function InsightsPage() {
   const router = useRouter();
 
-  const today = useMemo(() => formatNYDate(new Date()), []);
+  // URL-driven selected date (no useSearchParams)
+  const { selectedDate } = useSelectedISODate();
 
-  // ✅ No useSearchParams() (avoids /_not-found Suspense build failures)
-  const [selectedDate, setSelectedDate] = useState<string>(today);
-
-  // Sync selectedDate from URL on mount + browser nav
-  useEffect(() => {
-    const sync = () => {
-      const iso = readSelectedDateFromLocation(today);
-      setSelectedDate(isISODate(iso) ? iso : today);
-    };
-    sync();
-    window.addEventListener("popstate", sync);
-    return () => window.removeEventListener("popstate", sync);
-  }, [today]);
-
-  const isToday = selectedDate === today;
+  // NY "today" for comparisons and UI text
+  const todayNY = useMemo(() => formatNYDate(new Date()), []);
+  const isToday = selectedDate === todayNY;
 
   const [points, setPoints] = useState<DayPoint[]>([]);
   const [tab, setTab] = useState<"today" | "history">("today");
@@ -147,16 +137,17 @@ export default function InsightsPage() {
   const [historyRows, setHistoryRows] = useState<HistoryRow[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
-  // Fetch WHOOP sleep/recovery for selected day
+  // Fetch WHOOP sleep/recovery for selected day (cache in localStorage too)
   useEffect(() => {
     (async () => {
       try {
         const cached = getWhoopMetrics(selectedDate);
-        if (cached)
+        if (cached) {
           setWhoopSelected({
             sleepHours: cached.sleep_hours,
             recovery: cached.recovery_score,
           });
+        }
 
         const res = await fetch(`/api/whoop/metrics?date=${selectedDate}`, {
           credentials: "include",
@@ -229,9 +220,7 @@ export default function InsightsPage() {
     (async () => {
       setHistoryLoading(true);
       try {
-        const res = await fetch("/api/history?days=60", {
-          credentials: "include",
-        });
+        const res = await fetch("/api/history?days=60", { credentials: "include" });
         if (res.ok) {
           const j = await res.json();
           setHistoryRows(Array.isArray(j) ? j : []);
@@ -268,10 +257,7 @@ export default function InsightsPage() {
       .filter((s) => s.type === "creatine" && s.grams && s.grams > 0)
       .reduce((sum, s) => sum + (s.grams || 0) * 70, 0);
 
-    const lines: { label: string; added: number }[] = [
-      { label: "Base need", added: base },
-      ...workoutLines,
-    ];
+    const lines: { label: string; added: number }[] = [{ label: "Base need", added: base }, ...workoutLines];
     if (creatineMl > 0) lines.push({ label: "Creatine", added: Math.round(creatineMl) });
 
     const baseTarget = lines.reduce((s, l) => s + l.added, 0);
@@ -285,10 +271,7 @@ export default function InsightsPage() {
       if (h < 7.5) sAdj = Math.max(0, 7.5 - h) * 0.03;
       else if (h > 8.5) sAdj = -Math.max(0, h - 8.5) * 0.02;
       modPct += sAdj;
-      lines.push({
-        label: `Sleep (${h.toFixed(1)} h)`,
-        added: Math.round(baseTarget * sAdj),
-      });
+      lines.push({ label: `Sleep (${h.toFixed(1)} h)`, added: Math.round(baseTarget * sAdj) });
     }
 
     if (whoopSelected?.recovery != null) {
@@ -297,10 +280,7 @@ export default function InsightsPage() {
       if (r < 33) rAdj = 0.05;
       else if (r < 66) rAdj = 0.02;
       modPct += rAdj;
-      lines.push({
-        label: `Recovery (${Math.round(r)}%)`,
-        added: Math.round(baseTarget * rAdj),
-      });
+      lines.push({ label: `Recovery (${Math.round(r)}%)`, added: Math.round(baseTarget * rAdj) });
     }
 
     const total = Math.round(baseTarget + baseTarget * modPct);
@@ -334,12 +314,14 @@ export default function InsightsPage() {
 
     const deficit = Math.max(0, selectedTotals.target - selectedTotals.actual);
     if (selectedTotals.target > 0) {
-      if (deficit > 0)
+      if (deficit > 0) {
         messages.push({
           title: "Hydration pacing",
           body: `You're ~${Math.round(deficit / 29.5735)} oz behind target.`,
         });
-      else messages.push({ title: "Hydration pacing", body: "You're on pace or ahead of target." });
+      } else {
+        messages.push({ title: "Hydration pacing", body: "You're on pace or ahead of target." });
+      }
     }
 
     if (whoopSelected?.sleepHours != null || whoopSelected?.recovery != null) {
@@ -408,7 +390,7 @@ export default function InsightsPage() {
   }, [historyRows]);
 
   return (
-    <div className="px-4 pb-4 pt-[calc(72px+env(safe-area-inset-top))]">
+    <PageShell>
       {/* Date toggle belongs ONLY in the TopBar now — removed DateSwitcher from page */}
 
       <div className="flex items-start justify-between gap-3">
@@ -475,9 +457,7 @@ export default function InsightsPage() {
                 </ul>
                 <div className="mt-2 flex items-center justify-between border-t pt-2 text-sm">
                   <span className="font-medium">Total target</span>
-                  <span className="tabular-nums font-medium">
-                    {Math.round(dayBreakdown.total / 29.5735)} oz
-                  </span>
+                  <span className="tabular-nums font-medium">{Math.round(dayBreakdown.total / 29.5735)} oz</span>
                 </div>
               </Card>
             </section>
@@ -499,6 +479,7 @@ export default function InsightsPage() {
                 <p className="text-zinc-700 dark:text-zinc-300">{q.body}</p>
               </Card>
             ))}
+
             {quick.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-zinc-300 p-6 text-center text-sm text-zinc-600 dark:border-zinc-800 dark:text-zinc-400">
                 Add a profile, log a drink or a workout to see insights.
@@ -521,12 +502,14 @@ export default function InsightsPage() {
                     <DeltaPill value={historyCorr.sleep} />
                   </div>
                 )}
+
                 {historyCorr.recovery == null ? null : (
                   <div className="flex items-center gap-1 text-xs text-zinc-600 dark:text-zinc-400">
                     <span>Score vs Recovery</span>
                     <DeltaPill value={historyCorr.recovery} />
                   </div>
                 )}
+
                 {historyRows.length === 0 && !historyLoading ? (
                   <span className="text-xs text-zinc-500">No history saved yet.</span>
                 ) : null}
@@ -583,7 +566,7 @@ export default function InsightsPage() {
           </section>
         </>
       )}
-    </div>
+    </PageShell>
   );
 }
 
@@ -603,7 +586,6 @@ function TodayChart({ date, targetMl }: { date: string; targetMl: number }) {
 
   const cumulative: { t: number; ml: number }[] = [];
   let sum = 0;
-
   const queue = [...ints];
 
   for (let hr = startHr; hr <= endHr; hr++) {
@@ -619,9 +601,7 @@ function TodayChart({ date, targetMl }: { date: string; targetMl: number }) {
   const scaleY = (v: number) => h - pad - (v / maxY) * (h - pad * 2);
 
   const line = (vals: { t: number; ml: number }[]) =>
-    vals
-      .map((p, i) => `${i ? "L" : "M"} ${scaleX(p.t)} ${scaleY(p.ml)}`)
-      .join(" ");
+    vals.map((p, i) => `${i ? "L" : "M"} ${scaleX(p.t)} ${scaleY(p.ml)}`).join(" ");
 
   const targetLine = (tgt: number) =>
     line(
