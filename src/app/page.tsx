@@ -185,9 +185,7 @@ export default function Home() {
   }, [selectedDate, isToday]);
 
   return (
-    // Add enough top padding to clear the full fixed TopBar (not just a tiny gap).
-    // Keeps a small visual gap via pt + safe-area.
-    <div className="px-4 pb-4 pt-[calc(96px+env(safe-area-inset-top))]">
+    <div className="px-4 pb-4 pt-[calc(72px+env(safe-area-inset-top))]">
       {!isToday ? (
         <p className="mb-3 text-xs text-zinc-500 dark:text-zinc-400">
           Viewing <span className="font-medium">{selectedDate}</span>. Use Log/Workouts to add or edit for
