@@ -408,7 +408,7 @@ export default function InsightsPage() {
   }, [historyRows]);
 
   return (
-    <div className="p-4">
+    <div className="px-4 pb-4 pt-[calc(72px+env(safe-area-inset-top))]">
       {/* Date toggle belongs ONLY in the TopBar now — removed DateSwitcher from page */}
 
       <div className="flex items-start justify-between gap-3">
@@ -475,7 +475,9 @@ export default function InsightsPage() {
                 </ul>
                 <div className="mt-2 flex items-center justify-between border-t pt-2 text-sm">
                   <span className="font-medium">Total target</span>
-                  <span className="tabular-nums font-medium">{Math.round(dayBreakdown.total / 29.5735)} oz</span>
+                  <span className="tabular-nums font-medium">
+                    {Math.round(dayBreakdown.total / 29.5735)} oz
+                  </span>
                 </div>
               </Card>
             </section>
@@ -595,7 +597,9 @@ function TodayChart({ date, targetMl }: { date: string; targetMl: number }) {
   const startHr = 6,
     endHr = 21;
 
-  const ints = getIntakesByDateNY(date).sort((a, b) => +new Date(a.timestamp) - +new Date(b.timestamp));
+  const ints = getIntakesByDateNY(date).sort(
+    (a, b) => +new Date(a.timestamp) - +new Date(b.timestamp)
+  );
 
   const cumulative: { t: number; ml: number }[] = [];
   let sum = 0;

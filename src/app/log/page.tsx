@@ -100,7 +100,8 @@ export default function LogPage() {
   }
 
   return (
-    <div className="p-4">
+    // Match Home/Profile spacing so content clears the fixed TopBar, without a huge gap.
+    <div className="px-4 pb-4 pt-[calc(72px+env(safe-area-inset-top))]">
       {/* Date toggle belongs ONLY in the TopBar now — removed DateSwitcher from page */}
 
       <div className="flex items-start justify-between gap-3">

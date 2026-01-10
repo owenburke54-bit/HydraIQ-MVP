@@ -99,7 +99,8 @@ export default function WorkoutsPage() {
   ];
 
   return (
-    <div className="p-4">
+    // Match Home/Log spacing so content clears the fixed TopBar, without a huge gap.
+    <div className="px-4 pb-4 pt-[calc(72px+env(safe-area-inset-top))]">
       {/* Date toggle belongs ONLY in the TopBar now — removed DateSwitcher from page */}
 
       <div className="flex items-start justify-between gap-3">
@@ -236,10 +237,8 @@ export default function WorkoutsPage() {
                       const type = a?.sport_name
                         ? `WHOOP • ${toTitleCase(String(a.sport_name))}`
                         : "WHOOP";
-                      const strain =
-                        typeof a?.score?.strain === "number" ? Number(a.score.strain) : null;
-                      const intensity =
-                        typeof strain === "number" ? Math.max(0, Math.min(21, strain)) : null;
+                      const strain = typeof a?.score?.strain === "number" ? Number(a.score.strain) : null;
+                      const intensity = typeof strain === "number" ? Math.max(0, Math.min(21, strain)) : null;
 
                       addWorkout({
                         type: String(type),
@@ -316,7 +315,9 @@ function ListEditable({ workouts, selectedDate }: { workouts: any[]; selectedDat
                       setForm({
                         type: w.type || "Workout",
                         start: formatLocalInput(new Date(w.start_time)),
-                        end: formatLocalInput(w.end_time ? new Date(w.end_time) : new Date(w.start_time)),
+                        end: formatLocalInput(
+                          w.end_time ? new Date(w.end_time) : new Date(w.start_time)
+                        ),
                         intensity: w.intensity ?? 5,
                       });
                     }}
