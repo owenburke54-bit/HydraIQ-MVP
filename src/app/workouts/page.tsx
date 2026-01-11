@@ -53,14 +53,20 @@ export default function WorkoutsPage() {
   const [selectedDate, setSelectedDate] = useState<string>(todayISO);
 
   // ✅ No useSearchParams() (avoids /_not-found Suspense build failures)
+  // ✅ Sync selectedDate from URL on mount, back/forward, AND our custom date-change event.
   useEffect(() => {
     const sync = () => {
       const iso = readSelectedDateFromLocation(todayISO);
       setSelectedDate(isISODate(iso) ? iso : todayISO);
     };
+
     sync();
     window.addEventListener("popstate", sync);
-    return () => window.removeEventListener("popstate", sync);
+    window.addEventListener("hydra:datechange", sync);
+    return () => {
+      window.removeEventListener("popstate", sync);
+      window.removeEventListener("hydra:datechange", sync);
+    };
   }, [todayISO]);
 
   const isToday = selectedDate === todayISO;
@@ -237,8 +243,10 @@ export default function WorkoutsPage() {
                       const type = a?.sport_name
                         ? `WHOOP • ${toTitleCase(String(a.sport_name))}`
                         : "WHOOP";
-                      const strain = typeof a?.score?.strain === "number" ? Number(a.score.strain) : null;
-                      const intensity = typeof strain === "number" ? Math.max(0, Math.min(21, strain)) : null;
+                      const strain =
+                        typeof a?.score?.strain === "number" ? Number(a.score.strain) : null;
+                      const intensity =
+                        typeof strain === "number" ? Math.max(0, Math.min(21, strain)) : null;
 
                       addWorkout({
                         type: String(type),

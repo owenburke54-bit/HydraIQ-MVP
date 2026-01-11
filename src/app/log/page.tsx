@@ -56,14 +56,20 @@ export default function LogPage() {
   // ✅ No useSearchParams() (avoids /_not-found Suspense build failures)
   const [selectedDate, setSelectedDate] = useState<string>(todayISO);
 
+  // ✅ Sync selectedDate from URL on mount, back/forward, AND our custom date-change event.
   useEffect(() => {
     const sync = () => {
       const iso = readSelectedDateFromLocation(todayISO);
       setSelectedDate(isISODate(iso) ? iso : todayISO);
     };
+
     sync();
     window.addEventListener("popstate", sync);
-    return () => window.removeEventListener("popstate", sync);
+    window.addEventListener("hydra:datechange", sync);
+    return () => {
+      window.removeEventListener("popstate", sync);
+      window.removeEventListener("hydra:datechange", sync);
+    };
   }, [todayISO]);
 
   const [volume, setVolume] = useState<number | "">("");

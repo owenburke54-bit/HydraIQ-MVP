@@ -5,11 +5,7 @@ import { useRouter } from "next/navigation";
 import { Card } from "../../components/ui/Card";
 import RadialGauge from "../../components/charts/RadialGauge";
 import CalendarHeatmap from "../../components/charts/CalendarHeatmap";
-import {
-  calculateHydrationScore,
-  WORKOUT_ML_PER_MIN,
-  BASE_ML_PER_KG,
-} from "../../lib/hydration";
+import { calculateHydrationScore, WORKOUT_ML_PER_MIN, BASE_ML_PER_KG } from "../../lib/hydration";
 import {
   getProfile,
   formatNYDate,
@@ -205,8 +201,7 @@ function ScatterPlot({
   const maxY = Math.max(...ys);
 
   const sx = (v: number) =>
-    leftPad +
-    ((v - minX) / Math.max(1e-9, maxX - minX)) * (w - leftPad - pad);
+    leftPad + ((v - minX) / Math.max(1e-9, maxX - minX)) * (w - leftPad - pad);
   const sy = (v: number) =>
     pad + (1 - (v - minY) / Math.max(1e-9, maxY - minY)) * (h - pad - bottomPad);
 
@@ -331,15 +326,11 @@ function LineChart({
   const minY = Math.min(...ys);
   const maxY = Math.max(...ys);
 
-  const sx = (i: number) =>
-    leftPad +
-    (i / Math.max(1, points.length - 1)) * (w - leftPad - pad);
+  const sx = (i: number) => leftPad + (i / Math.max(1, points.length - 1)) * (w - leftPad - pad);
   const sy = (v: number) =>
     pad + (1 - (v - minY) / Math.max(1e-9, maxY - minY)) * (h - pad - bottomPad);
 
-  const path = points
-    .map((p, i) => `${i ? "L" : "M"} ${sx(i)} ${sy(p.value)}`)
-    .join(" ");
+  const path = points.map((p, i) => `${i ? "L" : "M"} ${sx(i)} ${sy(p.value)}`).join(" ");
 
   const yTicks = [minY, (minY + maxY) / 2, maxY];
 
@@ -409,15 +400,20 @@ export default function InsightsPage() {
   // ✅ No useSearchParams() (avoids /_not-found Suspense build failures)
   const [selectedDate, setSelectedDate] = useState<string>(today);
 
-  // Sync selectedDate from URL on mount + browser nav
+  // ✅ Sync selectedDate from URL on mount, back/forward, AND our custom date-change event.
   useEffect(() => {
     const sync = () => {
       const iso = readSelectedDateFromLocation(today);
       setSelectedDate(isISODate(iso) ? iso : today);
     };
+
     sync();
     window.addEventListener("popstate", sync);
-    return () => window.removeEventListener("popstate", sync);
+    window.addEventListener("hydra:datechange", sync);
+    return () => {
+      window.removeEventListener("popstate", sync);
+      window.removeEventListener("hydra:datechange", sync);
+    };
   }, [today]);
 
   const isToday = selectedDate === today;
@@ -558,10 +554,7 @@ export default function InsightsPage() {
       .filter((s) => s.type === "creatine" && s.grams && s.grams > 0)
       .reduce((sum, s) => sum + (s.grams || 0) * 70, 0);
 
-    const lines: { label: string; added: number }[] = [
-      { label: "Base need", added: base },
-      ...workoutLines,
-    ];
+    const lines: { label: string; added: number }[] = [{ label: "Base need", added: base }, ...workoutLines];
     if (creatineMl > 0) lines.push({ label: "Creatine", added: Math.round(creatineMl) });
 
     const baseTarget = lines.reduce((s, l) => s + l.added, 0);
@@ -1082,9 +1075,7 @@ export default function InsightsPage() {
                 <div className="rounded-2xl border border-zinc-200 p-3 dark:border-zinc-800">
                   <div className="flex items-center justify-between">
                     <div className="text-sm font-medium">Yesterday score → Today recovery</div>
-                    {lagCorr.score_recovery == null ? null : (
-                      <DeltaPill value={lagCorr.score_recovery} />
-                    )}
+                    {lagCorr.score_recovery == null ? null : <DeltaPill value={lagCorr.score_recovery} />}
                   </div>
                   <ScatterPlot
                     pairs={lagPairs.scoreToRecovery}
@@ -1160,9 +1151,7 @@ export default function InsightsPage() {
                           oz
                         </span>
                       </div>
-                      <div className="pt-1 text-xs text-zinc-500">
-                        Uses the same samples as above.
-                      </div>
+                      <div className="pt-1 text-xs text-zinc-500">Uses the same samples as above.</div>
                     </div>
                   </div>
                 </div>
@@ -1183,9 +1172,7 @@ export default function InsightsPage() {
                 <div className="mt-3 grid gap-3 md:grid-cols-3">
                   <div className="rounded-2xl border border-zinc-200 p-3 dark:border-zinc-800">
                     <p className="text-xs text-zinc-500">Current streak</p>
-                    <p className="mt-1 text-2xl font-semibold tabular-nums">
-                      {consistency.streakScore75}
-                    </p>
+                    <p className="mt-1 text-2xl font-semibold tabular-nums">{consistency.streakScore75}</p>
                     <p className="text-xs text-zinc-500">
                       Days in a row with score ≥ {consistency.threshold}
                     </p>
@@ -1287,9 +1274,7 @@ function TodayChart({ date, targetMl }: { date: string; targetMl: number }) {
   const startHr = 6,
     endHr = 21;
 
-  const ints = getIntakesByDateNY(date).sort(
-    (a, b) => +new Date(a.timestamp) - +new Date(b.timestamp)
-  );
+  const ints = getIntakesByDateNY(date).sort((a, b) => +new Date(a.timestamp) - +new Date(b.timestamp));
 
   const cumulative: { t: number; ml: number }[] = [];
   let sum = 0;
@@ -1309,9 +1294,7 @@ function TodayChart({ date, targetMl }: { date: string; targetMl: number }) {
   const scaleY = (v: number) => h - pad - (v / maxY) * (h - pad * 2);
 
   const line = (vals: { t: number; ml: number }[]) =>
-    vals
-      .map((p, i) => `${i ? "L" : "M"} ${scaleX(p.t)} ${scaleY(p.ml)}`)
-      .join(" ");
+    vals.map((p, i) => `${i ? "L" : "M"} ${scaleX(p.t)} ${scaleY(p.ml)}`).join(" ");
 
   const targetLine = (tgt: number) =>
     line(
