@@ -38,6 +38,16 @@ function defaultTimeForDate(isoDate: string) {
   return `${y}-${pad2(m)}-${pad2(d)}T12:00`;
 }
 
+// Ensure the datetime-local stays on the selected date unless the user intentionally changes it
+function coerceTimeToSelectedDate(nextValue: string, selectedDate: string) {
+  // nextValue like "YYYY-MM-DDTHH:mm"
+  if (!nextValue || nextValue.length < 16) return nextValue;
+  const datePart = nextValue.slice(0, 10);
+  if (datePart === selectedDate) return nextValue;
+  // Force it back onto the selected date, preserving time-of-day
+  return `${selectedDate}${nextValue.slice(10)}`;
+}
+
 export default function LogPage() {
   const router = useRouter();
 
@@ -89,27 +99,37 @@ export default function LogPage() {
     setSupplements((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
   }
 
-  // Ensure the datetime-local stays on the selected date unless the user intentionally changes it
-  function coerceTimeToSelectedDate(nextValue: string) {
-    // nextValue like "YYYY-MM-DDTHH:mm"
-    if (!nextValue || nextValue.length < 16) return nextValue;
-    const datePart = nextValue.slice(0, 10);
-    if (datePart === selectedDate) return nextValue;
-    // Force it back onto the selected date, preserving time-of-day
-    return `${selectedDate}${nextValue.slice(10)}`;
+  function goToDate(iso: string) {
+    // Guard: never allow future dates
+    const safe = iso > todayISO ? todayISO : iso;
+    router.push(`/log?date=${safe}`);
+    setSelectedDate(safe);
   }
 
   return (
-    // Match Home/Profile spacing so content clears the fixed TopBar, without a huge gap.
     <div className="px-4 pb-4 pt-[calc(72px+env(safe-area-inset-top))]">
-      {/* Date toggle belongs ONLY in the TopBar now — removed DateSwitcher from page */}
-
       <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold">Log Drink</h1>
           <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
             Saving to <span className="font-medium">{selectedDate}</span>
+            {selectedDate === todayISO ? " (Today)" : ""}
           </p>
+        </div>
+
+        {/* ✅ Date picker so you can log past days */}
+        <div className="flex flex-col items-end gap-1">
+          <label className="text-[11px] text-zinc-500 dark:text-zinc-400">Date</label>
+          <input
+            type="date"
+            value={selectedDate}
+            max={todayISO}
+            onChange={(e) => {
+              const next = e.target.value;
+              if (isISODate(next)) goToDate(next);
+            }}
+            className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm dark:border-zinc-800 dark:bg-zinc-900"
+          />
         </div>
       </div>
 
@@ -199,7 +219,7 @@ export default function LogPage() {
           <input
             type="datetime-local"
             value={time}
-            onChange={(e) => setTime(coerceTimeToSelectedDate(e.target.value))}
+            onChange={(e) => setTime(coerceTimeToSelectedDate(e.target.value, selectedDate))}
             className="w-full rounded-xl border border-zinc-200 bg-white p-3 text-base outline-none ring-blue-500 focus:ring-2 dark:border-zinc-800 dark:bg-zinc-900"
           />
         </div>
@@ -218,7 +238,7 @@ export default function LogPage() {
               const ml = oz * 29.5735;
 
               // Force timestamp to selected day if user input got weird
-              const when = new Date(coerceTimeToSelectedDate(time));
+              const when = new Date(coerceTimeToSelectedDate(time, selectedDate));
 
               addIntake(ml, type, when);
 
