@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card } from "../../components/ui/Card";
 import RadialGauge from "../../components/charts/RadialGauge";
-import CalendarHeatmap from "../../components/charts/CalendarHeatmap";
 import {
   calculateHydrationScore,
   WORKOUT_ML_PER_MIN,
@@ -137,19 +136,21 @@ function DeltaPill({ value }: { value: number }) {
   );
 }
 
-/** Clean 7-day bubble line chart with labels above points */
+/** Bubble line chart with labels above points (works for 7D and 14D). */
 function BubbleLineChart({
   points,
-  yLabel,
+  title,
+  compactXLabels = false,
 }: {
   points: { day: string; value: number }[];
-  yLabel?: string;
+  title?: string;
+  compactXLabels?: boolean;
 }) {
-  const w = 360;
-  const h = 170;
+  const w = 420;
+  const h = 190;
   const pad = 16;
   const leftPad = 44;
-  const bottomPad = 26;
+  const bottomPad = 28;
 
   if (!points.length) {
     return (
@@ -164,8 +165,7 @@ function BubbleLineChart({
   const maxY = Math.max(...ys);
 
   const sx = (i: number) =>
-    leftPad +
-    (i / Math.max(1, points.length - 1)) * (w - leftPad - pad);
+    leftPad + (i / Math.max(1, points.length - 1)) * (w - leftPad - pad);
 
   const sy = (v: number) =>
     pad + (1 - (v - minY) / Math.max(1e-9, maxY - minY)) * (h - pad - bottomPad);
@@ -176,8 +176,13 @@ function BubbleLineChart({
 
   const yTicks = [minY, (minY + maxY) / 2, maxY];
 
+  // reduce x label density for 14 days
+  const step = compactXLabels ? Math.ceil(points.length / 6) : 1;
+
   return (
     <div className="mt-3">
+      {title ? <div className="text-sm font-medium">{title}</div> : null}
+
       <svg viewBox={`0 0 ${w} ${h}`} className="w-full">
         {/* axes */}
         <line x1={leftPad} y1={h - bottomPad} x2={w - pad} y2={h - bottomPad} stroke="#e5e7eb" />
@@ -198,6 +203,7 @@ function BubbleLineChart({
 
         {/* x labels */}
         {points.map((p, i) => {
+          if (compactXLabels && i % step !== 0 && i !== points.length - 1) return null;
           const x = sx(i);
           const lab = p.day.slice(5); // MM-DD
           return (
@@ -219,20 +225,19 @@ function BubbleLineChart({
           const y = sy(p.value);
           return (
             <g key={p.day}>
-              <circle cx={x} cy={y} r="4.5" fill="#2563eb" opacity="0.9" />
-              <text x={x} y={y - 8} textAnchor="middle" fontSize="10" fill="#334155">
+              <circle cx={x} cy={y} r="5" fill="#2563eb" opacity="0.9" />
+              <text x={x} y={y - 9} textAnchor="middle" fontSize="10" fill="#334155">
                 {Math.round(p.value)}
               </text>
             </g>
           );
         })}
       </svg>
-
-      {yLabel ? <div className="mt-2 text-xs text-zinc-500">{yLabel}</div> : null}
     </div>
   );
 }
 
+/** Larger, roomier scatter card for Lag Effects. */
 function ScatterPlotCard({
   title,
   pairs,
@@ -250,16 +255,34 @@ function ScatterPlotCard({
   xFmt?: (v: number) => string;
   yFmt?: (v: number) => string;
 }) {
-  const w = 360;
-  const h = 190;
-  const pad = 18;
-  const leftPad = 44;
-  const bottomPad = 34;
+  // Bigger canvas for insight once data exists
+  const w = 460;
+  const h = 280;
+  const pad = 20;
+  const leftPad = 54;
+  const bottomPad = 40;
 
   const has = pairs.length > 0;
 
-  const xs = has ? pairs.map((p) => p.x) : [0];
-  const ys = has ? pairs.map((p) => p.y) : [0];
+  if (!has) {
+    return (
+      <div className="rounded-2xl border border-zinc-200 p-4 dark:border-zinc-800">
+        <div className="flex items-center justify-between gap-3">
+          <div className="text-sm font-medium">{title}</div>
+          {pill == null ? null : <DeltaPill value={pill} />}
+        </div>
+
+        <div className="mt-4 min-h-[220px] rounded-2xl border border-dashed border-zinc-300 p-8 text-center text-sm text-zinc-600 dark:border-zinc-800 dark:text-zinc-400 flex items-center justify-center">
+          Not enough data.
+        </div>
+
+        <div className="mt-3 text-xs text-zinc-500">Pairs: 0</div>
+      </div>
+    );
+  }
+
+  const xs = pairs.map((p) => p.x);
+  const ys = pairs.map((p) => p.y);
 
   const minX = Math.min(...xs);
   const maxX = Math.max(...xs);
@@ -272,7 +295,7 @@ function ScatterPlotCard({
   const sy = (v: number) =>
     pad + (1 - (v - minY) / Math.max(1e-9, maxY - minY)) * (h - pad - bottomPad);
 
-  // trend line (only if enough points)
+  // trend line
   let trendPath: string | null = null;
   if (pairs.length >= 2) {
     const n = pairs.length;
@@ -286,87 +309,82 @@ function ScatterPlotCard({
     }
     const slope = den ? num / den : 0;
     const intercept = my - slope * mx;
-
     const yAtMin = slope * minX + intercept;
     const yAtMax = slope * maxX + intercept;
     trendPath = `M ${sx(minX)} ${sy(yAtMin)} L ${sx(maxX)} ${sy(yAtMax)}`;
   }
 
+  // minimal tick labels (just ends)
+  const xLeft = xFmt ? xFmt(minX) : `${Math.round(minX)}`;
+  const xRight = xFmt ? xFmt(maxX) : `${Math.round(maxX)}`;
+  const yTop = yFmt ? yFmt(maxY) : `${Math.round(maxY)}`;
+  const yBottom = yFmt ? yFmt(minY) : `${Math.round(minY)}`;
+
   return (
-    <div className="rounded-2xl border border-zinc-200 p-3 dark:border-zinc-800">
+    <div className="rounded-2xl border border-zinc-200 p-4 dark:border-zinc-800">
       <div className="flex items-center justify-between gap-3">
         <div className="text-sm font-medium">{title}</div>
         {pill == null ? null : <DeltaPill value={pill} />}
       </div>
 
-      {!has ? (
-        <div className="mt-3 rounded-2xl border border-dashed border-zinc-300 p-6 text-center text-sm text-zinc-600 dark:border-zinc-800 dark:text-zinc-400">
-          Not enough data.
-        </div>
-      ) : (
-        <>
-          <div className="mt-3">
-            <svg viewBox={`0 0 ${w} ${h}`} className="w-full">
-              {/* axes */}
-              <line
-                x1={leftPad}
-                y1={h - bottomPad}
-                x2={w - pad}
-                y2={h - bottomPad}
-                stroke="#e5e7eb"
-              />
-              <line x1={leftPad} y1={pad} x2={leftPad} y2={h - bottomPad} stroke="#e5e7eb" />
+      <div className="mt-4">
+        <svg viewBox={`0 0 ${w} ${h}`} className="w-full">
+          {/* axes */}
+          <line x1={leftPad} y1={h - bottomPad} x2={w - pad} y2={h - bottomPad} stroke="#e5e7eb" />
+          <line x1={leftPad} y1={pad} x2={leftPad} y2={h - bottomPad} stroke="#e5e7eb" />
 
-              {/* trend */}
-              {trendPath ? (
-                <path d={trendPath} fill="none" stroke="#94a3b8" strokeWidth="2" />
-              ) : null}
+          {/* trend */}
+          {trendPath ? <path d={trendPath} fill="none" stroke="#94a3b8" strokeWidth="2" /> : null}
 
-              {/* points */}
-              {pairs.map((p, i) => (
-                <circle key={i} cx={sx(p.x)} cy={sy(p.y)} r="4" fill="#2563eb" opacity="0.85" />
-              ))}
+          {/* points */}
+          {pairs.map((p, i) => (
+            <circle key={i} cx={sx(p.x)} cy={sy(p.y)} r="4.5" fill="#2563eb" opacity="0.85" />
+          ))}
 
-              {/* axis labels */}
-              <text
-                x={(leftPad + (w - pad)) / 2}
-                y={h - 2}
-                textAnchor="middle"
-                fontSize="10"
-                fill="#64748b"
-              >
-                {xLabel}
-              </text>
-              <text
-                x={12}
-                y={(pad + (h - bottomPad)) / 2}
-                textAnchor="middle"
-                fontSize="10"
-                fill="#64748b"
-                transform={`rotate(-90 12 ${(pad + (h - bottomPad)) / 2})`}
-              >
-                {yLabel}
-              </text>
+          {/* axis labels */}
+          <text
+            x={(leftPad + (w - pad)) / 2}
+            y={h - 6}
+            textAnchor="middle"
+            fontSize="11"
+            fill="#64748b"
+          >
+            {xLabel}
+          </text>
+          <text
+            x={14}
+            y={(pad + (h - bottomPad)) / 2}
+            textAnchor="middle"
+            fontSize="11"
+            fill="#64748b"
+            transform={`rotate(-90 14 ${(pad + (h - bottomPad)) / 2})`}
+          >
+            {yLabel}
+          </text>
 
-              {/* light ticks (minimal) */}
-              <text x={leftPad} y={h - 14} fontSize="10" fill="#64748b">
-                {xFmt ? xFmt(minX) : `${Math.round(minX)}`}
-              </text>
-              <text x={w - pad} y={h - 14} textAnchor="end" fontSize="10" fill="#64748b">
-                {xFmt ? xFmt(maxX) : `${Math.round(maxX)}`}
-              </text>
-              <text x={leftPad - 6} y={pad + 3} textAnchor="end" fontSize="10" fill="#64748b">
-                {yFmt ? yFmt(maxY) : `${Math.round(maxY)}`}
-              </text>
-              <text x={leftPad - 6} y={h - bottomPad + 3} textAnchor="end" fontSize="10" fill="#64748b">
-                {yFmt ? yFmt(minY) : `${Math.round(minY)}`}
-              </text>
-            </svg>
-          </div>
+          {/* minimal ticks */}
+          <text x={leftPad} y={h - bottomPad + 18} fontSize="10" fill="#64748b">
+            {xLeft}
+          </text>
+          <text x={w - pad} y={h - bottomPad + 18} textAnchor="end" fontSize="10" fill="#64748b">
+            {xRight}
+          </text>
+          <text x={leftPad - 8} y={pad + 4} textAnchor="end" fontSize="10" fill="#64748b">
+            {yTop}
+          </text>
+          <text
+            x={leftPad - 8}
+            y={h - bottomPad + 4}
+            textAnchor="end"
+            fontSize="10"
+            fill="#64748b"
+          >
+            {yBottom}
+          </text>
+        </svg>
+      </div>
 
-          <p className="mt-2 text-xs text-zinc-500">Pairs: {pairs.length}</p>
-        </>
-      )}
+      <div className="mt-3 text-xs text-zinc-500">Pairs: {pairs.length}</div>
     </div>
   );
 }
@@ -377,7 +395,6 @@ export default function InsightsPage() {
   const today = useMemo(() => formatNYDate(new Date()), []);
   const [selectedDate, setSelectedDate] = useState<string>(today);
 
-  // ✅ Sync selectedDate from URL on mount, back/forward, AND our custom date-change event.
   useEffect(() => {
     const sync = () => {
       const iso = readSelectedDateFromLocation(today);
@@ -403,22 +420,20 @@ export default function InsightsPage() {
     recovery: number | null;
   } | null>(null);
 
-  // History data (server snapshots)
   const [historyRows, setHistoryRows] = useState<HistoryRow[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
-  // Fetch WHOOP sleep/recovery for selected day
   useEffect(() => {
     (async () => {
       try {
         const cached = getWhoopMetrics(selectedDate);
-        if (cached)
+        if (cached) {
           setWhoopSelected({
             sleepHours: cached.sleep_hours,
             recovery: cached.recovery_score,
           });
+        }
 
-        // If WHOOP is not connected, this may 401/500; safe to ignore.
         const res = await fetch(`/api/whoop/metrics?date=${selectedDate}`, {
           credentials: "include",
         });
@@ -437,12 +452,11 @@ export default function InsightsPage() {
     })();
   }, [selectedDate]);
 
-  // Local-derived points (used for heatmap + quick charts)
+  // 14-day local points (for History bottom trend)
   useEffect(() => {
     const prof = getProfile();
     const weight = prof?.weight_kg ?? 0;
 
-    // 14-day window for heatmap
     const arr: string[] = [];
     const now = new Date();
     for (let i = 0; i < 14; i++) {
@@ -490,7 +504,6 @@ export default function InsightsPage() {
     setPoints(out.reverse());
   }, []);
 
-  // Fetch history snapshots when switching to History (cache after first load)
   useEffect(() => {
     if (tab !== "history") return;
     if (historyRows.length) return;
@@ -508,7 +521,6 @@ export default function InsightsPage() {
     })();
   }, [tab, historyRows.length]);
 
-  // Breakdown of selected day's target: base + workouts + creatine (+ WHOOP modifiers)
   const dayBreakdown = useMemo(() => {
     const prof = getProfile();
     const weight = prof?.weight_kg ?? 0;
@@ -543,7 +555,6 @@ export default function InsightsPage() {
 
     const baseTarget = lines.reduce((s, l) => s + l.added, 0);
 
-    // WHOOP modifiers
     let modPct = 0;
 
     if (whoopSelected?.sleepHours != null) {
@@ -552,10 +563,7 @@ export default function InsightsPage() {
       if (h < 7.5) sAdj = Math.max(0, 7.5 - h) * 0.03;
       else if (h > 8.5) sAdj = -Math.max(0, h - 8.5) * 0.02;
       modPct += sAdj;
-      lines.push({
-        label: `Sleep (${h.toFixed(1)} h)`,
-        added: Math.round(baseTarget * sAdj),
-      });
+      lines.push({ label: `Sleep (${h.toFixed(1)} h)`, added: Math.round(baseTarget * sAdj) });
     }
 
     if (whoopSelected?.recovery != null) {
@@ -564,10 +572,7 @@ export default function InsightsPage() {
       if (r < 33) rAdj = 0.05;
       else if (r < 66) rAdj = 0.02;
       modPct += rAdj;
-      lines.push({
-        label: `Recovery (${Math.round(r)}%)`,
-        added: Math.round(baseTarget * rAdj),
-      });
+      lines.push({ label: `Recovery (${Math.round(r)}%)`, added: Math.round(baseTarget * rAdj) });
     }
 
     const total = Math.round(baseTarget + baseTarget * modPct);
@@ -595,47 +600,32 @@ export default function InsightsPage() {
     return { actual, target, score };
   }, [selectedDate, dayBreakdown]);
 
-  // Quick insight cards (Selected day)
   const quick = useMemo(() => {
     const messages: { title: string; body: string }[] = [];
 
     const deficit = Math.max(0, selectedTotals.target - selectedTotals.actual);
     if (selectedTotals.target > 0) {
       if (deficit > 0)
-        messages.push({
-          title: "Hydration pacing",
-          body: `You're ~${Math.round(deficit / 29.5735)} oz behind target.`,
-        });
-      else messages.push({ title: "Hydration pacing", body: "You're on pace or ahead of target." });
+        messages.push({ title: "Hydration pacing", body: `~${Math.round(deficit / 29.5735)} oz behind target.` });
+      else messages.push({ title: "Hydration pacing", body: "On pace or ahead of target." });
     }
 
     if (whoopSelected?.sleepHours != null || whoopSelected?.recovery != null) {
       const parts: string[] = [];
       if (whoopSelected.sleepHours != null) parts.push(`Sleep ${whoopSelected.sleepHours.toFixed(1)} h`);
       if (whoopSelected.recovery != null) parts.push(`Recovery ${Math.round(whoopSelected.recovery)}%`);
-      messages.push({
-        title: "WHOOP synergy",
-        body: `Target accounts for ${parts.join(" • ")}.`,
-      });
+      messages.push({ title: "WHOOP synergy", body: parts.join(" • ") });
     }
 
     return messages.slice(0, 5);
   }, [selectedTotals, whoopSelected]);
 
-  // ---- HISTORY CLEANUP ----
-
-  const historySorted = useMemo(() => {
-    const rows = [...historyRows].filter((r) => isISODate(r.day));
-    rows.sort((a, b) => a.day.localeCompare(b.day));
-    return rows;
-  }, [historyRows]);
-
-  // 7D hydration score series ending on selectedDate (uses localStore so it never looks empty)
+  // 7-day series ending on selectedDate (History top chart)
   const series7D = useMemo(() => {
     const prof = getProfile();
     const weight = prof?.weight_kg ?? 0;
 
-    const days = Array.from({ length: 7 }).map((_, i) => addDaysISO(selectedDate, -(6 - i))); // oldest -> newest
+    const days = Array.from({ length: 7 }).map((_, i) => addDaysISO(selectedDate, -(6 - i)));
 
     const pts = days.map((date) => {
       const intakes = getIntakesByDateNY(date);
@@ -673,10 +663,42 @@ export default function InsightsPage() {
       return { day: date, value: Number(score.toFixed(1)) };
     });
 
-    // If literally all zeros and no profile, show empty state
     const any = pts.some((p) => p.value > 0);
     return any ? pts : [];
   }, [selectedDate]);
+
+  // 14-day trend series from local points you already compute
+  const series14D = useMemo(() => {
+    const pts = points.map((p) => ({ day: p.date, value: Number(p.score.toFixed(1)) }));
+    const any = pts.some((p) => p.value > 0);
+    return any ? pts : [];
+  }, [points]);
+
+  const stats14D = useMemo(() => {
+    if (!series14D.length) return null;
+
+    const values = series14D.map((p) => p.value);
+    const avg = mean(values) ?? 0;
+
+    let best = series14D[0];
+    for (const p of series14D) if (p.value > best.value) best = p;
+
+    // streak >= 75 ending on most recent day in the series
+    const THRESH = 75;
+    let streak = 0;
+    for (let i = series14D.length - 1; i >= 0; i--) {
+      if (series14D[i].value >= THRESH) streak++;
+      else break;
+    }
+
+    return { avg, bestDay: best.day, bestScore: best.value, streak75: streak, threshold: THRESH };
+  }, [series14D]);
+
+  const historySorted = useMemo(() => {
+    const rows = [...historyRows].filter((r) => isISODate(r.day));
+    rows.sort((a, b) => a.day.localeCompare(b.day));
+    return rows;
+  }, [historyRows]);
 
   const lagPairs = useMemo(() => {
     const map = new Map<string, HistoryRow>();
@@ -695,36 +717,16 @@ export default function InsightsPage() {
 
       if (todayRow.sleep_hours != null) {
         if (Number.isFinite(yRow.hydration_score))
-          scoreToSleep.push({
-            x: Number(yRow.hydration_score),
-            y: Number(todayRow.sleep_hours),
-            dayToday,
-            dayYesterday,
-          });
+          scoreToSleep.push({ x: Number(yRow.hydration_score), y: Number(todayRow.sleep_hours), dayToday, dayYesterday });
         if (Number.isFinite(yRow.total_oz))
-          ozToSleep.push({
-            x: Number(yRow.total_oz),
-            y: Number(todayRow.sleep_hours),
-            dayToday,
-            dayYesterday,
-          });
+          ozToSleep.push({ x: Number(yRow.total_oz), y: Number(todayRow.sleep_hours), dayToday, dayYesterday });
       }
 
       if (todayRow.recovery_pct != null) {
         if (Number.isFinite(yRow.hydration_score))
-          scoreToRecovery.push({
-            x: Number(yRow.hydration_score),
-            y: Number(todayRow.recovery_pct),
-            dayToday,
-            dayYesterday,
-          });
+          scoreToRecovery.push({ x: Number(yRow.hydration_score), y: Number(todayRow.recovery_pct), dayToday, dayYesterday });
         if (Number.isFinite(yRow.total_oz))
-          ozToRecovery.push({
-            x: Number(yRow.total_oz),
-            y: Number(todayRow.recovery_pct),
-            dayToday,
-            dayYesterday,
-          });
+          ozToRecovery.push({ x: Number(yRow.total_oz), y: Number(todayRow.recovery_pct), dayToday, dayYesterday });
       }
     }
 
@@ -745,47 +747,6 @@ export default function InsightsPage() {
       oz_recovery: corr(lagPairs.ozToRecovery),
     };
   }, [lagPairs]);
-
-  // Optional: leave heatmap (it looks fine lower down in History)
-  const heatmapCells = useMemo(() => points.map((p) => ({ date: p.date, value: p.score })), [points]);
-
-  // Optional: “Predict a good next day?” (kept, but hidden when no data)
-  const nextDayComparison = useMemo(() => {
-    if (!historySorted.length) return null;
-
-    const map = new Map<string, HistoryRow>();
-    for (const r of historySorted) map.set(r.day, r);
-
-    const beforeHigh: number[] = [];
-    const beforeLow: number[] = [];
-    const beforeHighOz: number[] = [];
-    const beforeLowOz: number[] = [];
-
-    for (const row of historySorted) {
-      const rec = row.recovery_pct;
-      if (rec == null) continue;
-
-      const y = map.get(addDaysISO(row.day, -1));
-      if (!y) continue;
-
-      if (rec >= 66) {
-        beforeHigh.push(y.hydration_score);
-        beforeHighOz.push(y.total_oz);
-      } else if (rec < 33) {
-        beforeLow.push(y.hydration_score);
-        beforeLowOz.push(y.total_oz);
-      }
-    }
-
-    return {
-      hiCount: beforeHigh.length,
-      loCount: beforeLow.length,
-      avgScoreBeforeHigh: mean(beforeHigh),
-      avgScoreBeforeLow: mean(beforeLow),
-      avgOzBeforeHigh: mean(beforeHighOz),
-      avgOzBeforeLow: mean(beforeLowOz),
-    };
-  }, [historySorted]);
 
   return (
     <div className="px-4 pb-4 pt-[calc(72px+env(safe-area-inset-top))]">
@@ -868,6 +829,7 @@ export default function InsightsPage() {
                 <p className="text-zinc-700 dark:text-zinc-300">{q.body}</p>
               </Card>
             ))}
+
             {quick.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-zinc-300 p-6 text-center text-sm text-zinc-600 dark:border-zinc-800 dark:text-zinc-400">
                 Add a profile, log a drink or a workout to see insights.
@@ -877,24 +839,20 @@ export default function InsightsPage() {
         </>
       ) : (
         <>
-          {/* ✅ Removed the “Advanced history insights” top card entirely */}
-
-          {/* ✅ 7-day hydration score line chart with bubbles + labels */}
+          {/* 7-day chart */}
           <section className="mt-4">
             <Card className="p-4">
               <div className="flex items-baseline justify-between gap-3">
                 <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
                   Hydration Score (Last 7 Days)
                 </p>
-                {historyLoading ? (
-                  <span className="text-xs text-zinc-500">Loading…</span>
-                ) : null}
+                {historyLoading ? <span className="text-xs text-zinc-500">Loading…</span> : null}
               </div>
               <BubbleLineChart points={series7D} />
             </Card>
           </section>
 
-          {/* ✅ Lag effects — cleaner + minimal text */}
+          {/* Lag Effects — bigger + spaced */}
           <section className="mt-4">
             <Card className="p-4">
               <div className="flex items-center justify-between gap-3">
@@ -904,7 +862,10 @@ export default function InsightsPage() {
                 ) : null}
               </div>
 
-              <div className="mt-3 grid gap-3 md:grid-cols-2">
+              {/* ✅ More spacing + larger cards:
+                  - mobile: 1 column (bigger charts)
+                  - md+: 2 columns */}
+              <div className="mt-4 grid gap-4 md:grid-cols-2">
                 <ScatterPlotCard
                   title="Score → Sleep (Next Day)"
                   pairs={lagPairs.scoreToSleep}
@@ -948,79 +909,49 @@ export default function InsightsPage() {
             </Card>
           </section>
 
-          {/* Keep heatmap lower (optional, still nice) */}
+          {/* 14-day: replace “meaningless green grid” with a real trend + stats */}
           <section className="mt-4">
             <Card className="p-4">
-              <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                Hydration Score (Last 14 Days)
-              </p>
-              <div className="mt-3">
-                <CalendarHeatmap cells={heatmapCells} />
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                    Hydration Score (Last 14 Days)
+                  </p>
+                  <p className="mt-1 text-xs text-zinc-500">
+                    Trend + key signals (built from your logged intake/workouts).
+                  </p>
+                </div>
               </div>
-            </Card>
-          </section>
 
-          {/* Optional “Predict a good next day?” (only if history exists) */}
-          {nextDayComparison ? (
-            <section className="mt-4">
-              <Card className="p-4">
-                <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                  Predictors (Next-Day Recovery)
-                </p>
-
-                <div className="mt-3 grid gap-3 md:grid-cols-2">
+              {/* Stats row */}
+              {stats14D ? (
+                <div className="mt-3 grid grid-cols-3 gap-2">
                   <div className="rounded-2xl border border-zinc-200 p-3 dark:border-zinc-800">
-                    <p className="text-sm font-medium">Avg score (previous day)</p>
-                    <div className="mt-2 space-y-1 text-sm text-zinc-700 dark:text-zinc-300">
-                      <div className="flex items-center justify-between">
-                        <span>Before high recovery (≥66%)</span>
-                        <span className="tabular-nums">
-                          {nextDayComparison.avgScoreBeforeHigh == null
-                            ? "—"
-                            : Math.round(nextDayComparison.avgScoreBeforeHigh)}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span>Before low recovery (&lt;33%)</span>
-                        <span className="tabular-nums">
-                          {nextDayComparison.avgScoreBeforeLow == null
-                            ? "—"
-                            : Math.round(nextDayComparison.avgScoreBeforeLow)}
-                        </span>
-                      </div>
-                      <div className="pt-1 text-xs text-zinc-500">
-                        Samples: {nextDayComparison.hiCount} high • {nextDayComparison.loCount} low
-                      </div>
+                    <div className="text-[11px] text-zinc-500">Avg</div>
+                    <div className="mt-1 text-xl font-semibold tabular-nums">
+                      {Math.round(stats14D.avg)}
                     </div>
                   </div>
-
                   <div className="rounded-2xl border border-zinc-200 p-3 dark:border-zinc-800">
-                    <p className="text-sm font-medium">Avg oz (previous day)</p>
-                    <div className="mt-2 space-y-1 text-sm text-zinc-700 dark:text-zinc-300">
-                      <div className="flex items-center justify-between">
-                        <span>Before high recovery (≥66%)</span>
-                        <span className="tabular-nums">
-                          {nextDayComparison.avgOzBeforeHigh == null
-                            ? "—"
-                            : Math.round(nextDayComparison.avgOzBeforeHigh)}{" "}
-                          oz
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span>Before low recovery (&lt;33%)</span>
-                        <span className="tabular-nums">
-                          {nextDayComparison.avgOzBeforeLow == null
-                            ? "—"
-                            : Math.round(nextDayComparison.avgOzBeforeLow)}{" "}
-                          oz
-                        </span>
-                      </div>
+                    <div className="text-[11px] text-zinc-500">Best</div>
+                    <div className="mt-1 text-xl font-semibold tabular-nums">
+                      {Math.round(stats14D.bestScore)}
                     </div>
+                    <div className="mt-1 text-[11px] text-zinc-500">{stats14D.bestDay}</div>
+                  </div>
+                  <div className="rounded-2xl border border-zinc-200 p-3 dark:border-zinc-800">
+                    <div className="text-[11px] text-zinc-500">Streak</div>
+                    <div className="mt-1 text-xl font-semibold tabular-nums">
+                      {stats14D.streak75}
+                    </div>
+                    <div className="mt-1 text-[11px] text-zinc-500">Days ≥ {stats14D.threshold}</div>
                   </div>
                 </div>
-              </Card>
-            </section>
-          ) : null}
+              ) : null}
+
+              <BubbleLineChart points={series14D} compactXLabels />
+            </Card>
+          </section>
         </>
       )}
     </div>
