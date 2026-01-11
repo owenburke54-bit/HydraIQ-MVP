@@ -21,7 +21,6 @@ function pad2(n: number) {
   return String(n).padStart(2, "0");
 }
 
-// Build a datetime-local string for a given ISO date in local time
 function defaultTimeForDate(isoDate: string) {
   const now = new Date();
   const todayIso = formatNYDate(now);
@@ -38,13 +37,10 @@ function defaultTimeForDate(isoDate: string) {
   return `${y}-${pad2(m)}-${pad2(d)}T12:00`;
 }
 
-// Ensure the datetime-local stays on the selected date unless the user intentionally changes it
 function coerceTimeToSelectedDate(nextValue: string, selectedDate: string) {
-  // nextValue like "YYYY-MM-DDTHH:mm"
   if (!nextValue || nextValue.length < 16) return nextValue;
   const datePart = nextValue.slice(0, 10);
   if (datePart === selectedDate) return nextValue;
-  // Force it back onto the selected date, preserving time-of-day
   return `${selectedDate}${nextValue.slice(10)}`;
 }
 
@@ -53,10 +49,10 @@ export default function LogPage() {
 
   const todayISO = useMemo(() => formatNYDate(new Date()), []);
 
-  // ✅ No useSearchParams() (avoids /_not-found Suspense build failures)
+  // ✅ Date is determined ONLY by URL (TopBar)
   const [selectedDate, setSelectedDate] = useState<string>(todayISO);
 
-  // ✅ Sync selectedDate from URL on mount, back/forward, AND our custom date-change event.
+  // ✅ Sync selectedDate from URL on mount, back/forward, AND hydra:datechange
   useEffect(() => {
     const sync = () => {
       const iso = readSelectedDateFromLocation(todayISO);
@@ -80,7 +76,7 @@ export default function LogPage() {
   const [supplements, setSupplements] = useState<SuppKey[]>([]);
   const [suppGrams, setSuppGrams] = useState<number | "">("");
 
-  // When the selected day changes, reset the default time to that day.
+  // When selected day changes, reset the default time to that day.
   useEffect(() => {
     setTime(defaultTimeForDate(selectedDate));
   }, [selectedDate]);
@@ -105,17 +101,6 @@ export default function LogPage() {
     setSupplements((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
   }
 
-  function goToDate(iso: string) {
-    // Guard: never allow future dates
-    const safe = iso > todayISO ? todayISO : iso;
-
-    // URL is source of truth:
-    router.push(`/log?date=${safe}`);
-
-    // router.push doesn't fire popstate → tell the app to resync from URL
-    window.dispatchEvent(new Event("hydra:datechange"));
-  }
-
   return (
     <div className="px-4 pb-4 pt-[calc(72px+env(safe-area-inset-top))]">
       <div className="flex items-start justify-between gap-3">
@@ -125,21 +110,6 @@ export default function LogPage() {
             Saving to <span className="font-medium">{selectedDate}</span>
             {selectedDate === todayISO ? " (Today)" : ""}
           </p>
-        </div>
-
-        {/* ✅ Date picker so you can log past days */}
-        <div className="flex flex-col items-end gap-1">
-          <label className="text-[11px] text-zinc-500 dark:text-zinc-400">Date</label>
-          <input
-            type="date"
-            value={selectedDate}
-            max={todayISO}
-            onChange={(e) => {
-              const next = e.target.value;
-              if (isISODate(next)) goToDate(next);
-            }}
-            className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm dark:border-zinc-800 dark:bg-zinc-900"
-          />
         </div>
       </div>
 
@@ -246,8 +216,6 @@ export default function LogPage() {
               if (oz <= 0) throw new Error("Enter a valid volume");
 
               const ml = oz * 29.5735;
-
-              // Force timestamp to selected day if user input got weird
               const when = new Date(coerceTimeToSelectedDate(time, selectedDate));
 
               addIntake(ml, type, when);
@@ -258,7 +226,6 @@ export default function LogPage() {
                 addSupplements({ types: supplements, timestamp: when, grams });
               }
 
-              // Go back to Home *preserving the selected date*
               router.replace(`/?date=${selectedDate}`);
             } catch (e: any) {
               setError(e?.message || "Unexpected error");
