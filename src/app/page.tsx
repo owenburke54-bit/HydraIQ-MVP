@@ -20,15 +20,20 @@ export default function Home() {
   const todayISO = useMemo(() => formatNYDate(new Date()), []);
   const [selectedDate, setSelectedDate] = useState<string>(todayISO);
 
-  // ✅ Avoid useSearchParams() so /_not-found prerender doesn't fail on Vercel
+  // ✅ Sync selectedDate from URL on mount, back/forward, AND our custom date-change event.
   useEffect(() => {
     const sync = () => {
       const iso = readSelectedDateFromLocation(todayISO);
       setSelectedDate(isISODate(iso) ? iso : todayISO);
     };
+
     sync();
     window.addEventListener("popstate", sync);
-    return () => window.removeEventListener("popstate", sync);
+    window.addEventListener("hydra:datechange", sync);
+    return () => {
+      window.removeEventListener("popstate", sync);
+      window.removeEventListener("hydra:datechange", sync);
+    };
   }, [todayISO]);
 
   const [state, setState] = useState({
@@ -51,26 +56,29 @@ export default function Home() {
     const tick = () => {
       const intakes = getIntakesByDateNY(selectedDate);
       const actual = intakes.reduce((s, i) => s + i.volume_ml, 0);
-      const score =
-        state.target > 0
-          ? calculateHydrationScore({
-              targetMl: state.target,
-              actualMl: actual,
-              intakes: intakes.map((i) => ({
-                timestamp: new Date(i.timestamp),
-                volumeMl: i.volume_ml,
-              })),
-              workouts: [],
-            })
-          : 0;
 
-      setState((prev) => ({ ...prev, intakes, actual, score }));
+      setState((prev) => {
+        const score =
+          prev.target > 0
+            ? calculateHydrationScore({
+                targetMl: prev.target,
+                actualMl: actual,
+                intakes: intakes.map((i) => ({
+                  timestamp: new Date(i.timestamp),
+                  volumeMl: i.volume_ml,
+                })),
+                workouts: [],
+              })
+            : 0;
+
+        return { ...prev, intakes, actual, score };
+      });
     };
 
     tick();
     const id = setInterval(tick, 60 * 1000);
     return () => clearInterval(id);
-  }, [state.target, selectedDate]);
+  }, [selectedDate]);
 
   // Compute target + flags for selected day
   useEffect(() => {

@@ -1,24 +1,22 @@
 "use client";
 
 import { useMemo } from "react";
-import { usePathname } from "next/navigation";
 import { useSelectedISODate, clampISODate } from "@/lib/selectedDate";
 
-function toDisplayMMDDYYYY(iso: string) {
-  // iso: YYYY-MM-DD -> MM/DD/YYYY
-  const [y, m, d] = iso.split("-");
-  return `${m}/${d}/${y}`;
-}
-
 export default function TopBarClient() {
-  const pathname = usePathname() || "/";
   const { todayISO, selectedDate, label, prev, next, nextDisabled, go } = useSelectedISODate();
 
-  // Only show date picker on main tabs (optional). If you want it everywhere, remove this.
-  const showPicker = useMemo(() => {
-    // Hide on auth pages etc if you want
-    return true;
-  }, []);
+  // If you ever want to hide this on certain routes, re-add pathname checks.
+  const showPicker = useMemo(() => true, []);
+
+  function goAndNotify(nextISO: string) {
+    go(nextISO);
+
+    // ✅ Tell other pages (Home/Insights/etc) the date changed (router.push does NOT trigger popstate).
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("hydra:datechange"));
+    }
+  }
 
   if (!showPicker) return null;
 
@@ -28,7 +26,7 @@ export default function TopBarClient() {
       <button
         type="button"
         aria-label="Previous day"
-        onClick={() => go(prev)}
+        onClick={() => goAndNotify(prev)}
         className="h-9 w-10 rounded-xl border border-zinc-200 bg-white text-zinc-700 shadow-sm active:scale-[0.98] dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200"
       >
         ←
@@ -43,14 +41,14 @@ export default function TopBarClient() {
       <button
         type="button"
         aria-label="Next day"
-        onClick={() => go(next)}
+        onClick={() => goAndNotify(next)}
         disabled={nextDisabled}
         className="h-9 w-10 rounded-xl border border-zinc-200 bg-white text-zinc-700 shadow-sm active:scale-[0.98] disabled:opacity-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200"
       >
         →
       </button>
 
-      {/* Date picker (MM/DD/YYYY) */}
+      {/* Date picker */}
       <div className="ml-2 flex items-center gap-2">
         <input
           type="date"
@@ -58,7 +56,7 @@ export default function TopBarClient() {
           max={todayISO}
           onChange={(e) => {
             const v = clampISODate(e.target.value);
-            go(v);
+            goAndNotify(v);
           }}
           className="h-9 rounded-xl border border-zinc-200 bg-white px-3 text-sm shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200"
           aria-label="Select date"
