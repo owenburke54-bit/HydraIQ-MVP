@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card } from "../../components/ui/Card";
 import RadialGauge from "../../components/charts/RadialGauge";
+import CalendarHeatmap from "../../components/charts/CalendarHeatmap";
 import {
   calculateHydrationScore,
   WORKOUT_ML_PER_MIN,
@@ -42,6 +43,17 @@ type Pair = {
   dayToday: string;
   dayYesterday: string;
 };
+
+function lastNDatesNY(n: number): string[] {
+  const arr: string[] = [];
+  const now = new Date();
+  for (let i = 0; i < n; i++) {
+    const d = new Date(now);
+    d.setDate(now.getDate() - i);
+    arr.push(formatNYDate(d));
+  }
+  return arr;
+}
 
 function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n));
@@ -120,163 +132,50 @@ function TabPill({
   );
 }
 
-function DeltaPill({ value }: { value: number }) {
-  const positive = value >= 0;
+/** KPI pill for correlations: green up for +, red down for - */
+function CorrKPI({ value }: { value: number | null }) {
+  if (value == null) return null;
+  const pos = value >= 0;
   const pct = Math.round(Math.abs(value) * 100);
-  const bg = positive ? "bg-emerald-900/30" : "bg-rose-900/30";
-  const text = positive ? "text-emerald-400" : "text-rose-400";
-  const rotate = positive ? "rotate-0" : "rotate-180";
+  const bg = pos ? "bg-emerald-900/15" : "bg-rose-900/15";
+  const text = pos ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400";
+  const border = pos ? "border-emerald-200/60 dark:border-emerald-900/40" : "border-rose-200/60 dark:border-rose-900/40";
+  const rotate = pos ? "rotate-0" : "rotate-180";
   return (
-    <span className={`inline-flex items-center gap-1 rounded-xl px-2 py-1 ${bg}`}>
-      <svg width="10" height="10" viewBox="0 0 24 24" className={`${text} ${rotate}`} aria-hidden>
+    <div className={`inline-flex items-center gap-1.5 rounded-xl border px-2 py-1 ${bg} ${border}`}>
+      <svg width="12" height="12" viewBox="0 0 24 24" className={`${text} ${rotate}`} aria-hidden>
         <polygon points="12,4 20,20 4,20" fill="currentColor"></polygon>
       </svg>
-      <span className={`text-[11px] font-medium leading-none ${text}`}>{pct}%</span>
-    </span>
-  );
-}
-
-/** Bubble line chart with labels above points (works for 7D and 14D). */
-function BubbleLineChart({
-  points,
-  title,
-  compactXLabels = false,
-}: {
-  points: { day: string; value: number }[];
-  title?: string;
-  compactXLabels?: boolean;
-}) {
-  const w = 420;
-  const h = 190;
-  const pad = 16;
-  const leftPad = 44;
-  const bottomPad = 28;
-
-  if (!points.length) {
-    return (
-      <div className="mt-3 rounded-2xl border border-dashed border-zinc-300 p-6 text-center text-sm text-zinc-600 dark:border-zinc-800 dark:text-zinc-400">
-        No data yet.
-      </div>
-    );
-  }
-
-  const ys = points.map((p) => p.value);
-  const minY = Math.min(...ys);
-  const maxY = Math.max(...ys);
-
-  const sx = (i: number) =>
-    leftPad + (i / Math.max(1, points.length - 1)) * (w - leftPad - pad);
-
-  const sy = (v: number) =>
-    pad + (1 - (v - minY) / Math.max(1e-9, maxY - minY)) * (h - pad - bottomPad);
-
-  const path = points
-    .map((p, i) => `${i ? "L" : "M"} ${sx(i)} ${sy(p.value)}`)
-    .join(" ");
-
-  const yTicks = [minY, (minY + maxY) / 2, maxY];
-
-  // reduce x label density for 14 days
-  const step = compactXLabels ? Math.ceil(points.length / 6) : 1;
-
-  return (
-    <div className="mt-3">
-      {title ? <div className="text-sm font-medium">{title}</div> : null}
-
-      <svg viewBox={`0 0 ${w} ${h}`} className="w-full">
-        {/* axes */}
-        <line x1={leftPad} y1={h - bottomPad} x2={w - pad} y2={h - bottomPad} stroke="#e5e7eb" />
-        <line x1={leftPad} y1={pad} x2={leftPad} y2={h - bottomPad} stroke="#e5e7eb" />
-
-        {/* y grid + labels */}
-        {yTicks.map((v, i) => {
-          const y = sy(v);
-          return (
-            <g key={i}>
-              <line x1={leftPad - 4} y1={y} x2={w - pad} y2={y} stroke="#f1f5f9" />
-              <text x={leftPad - 6} y={y + 3} textAnchor="end" fontSize="10" fill="#64748b">
-                {Math.round(v)}
-              </text>
-            </g>
-          );
-        })}
-
-        {/* x labels */}
-        {points.map((p, i) => {
-          if (compactXLabels && i % step !== 0 && i !== points.length - 1) return null;
-          const x = sx(i);
-          const lab = p.day.slice(5); // MM-DD
-          return (
-            <g key={p.day}>
-              <line x1={x} y1={h - bottomPad} x2={x} y2={h - bottomPad + 4} stroke="#cbd5e1" />
-              <text x={x} y={h - 8} textAnchor="middle" fontSize="10" fill="#64748b">
-                {lab}
-              </text>
-            </g>
-          );
-        })}
-
-        {/* line */}
-        <path d={path} fill="none" stroke="#2563eb" strokeWidth="2.5" />
-
-        {/* points + value labels */}
-        {points.map((p, i) => {
-          const x = sx(i);
-          const y = sy(p.value);
-          return (
-            <g key={p.day}>
-              <circle cx={x} cy={y} r="5" fill="#2563eb" opacity="0.9" />
-              <text x={x} y={y - 9} textAnchor="middle" fontSize="10" fill="#334155">
-                {Math.round(p.value)}
-              </text>
-            </g>
-          );
-        })}
-      </svg>
+      <span className={`text-xs font-semibold tabular-nums ${text}`}>{pct}%</span>
     </div>
   );
 }
 
-/** Larger, roomier scatter card for Lag Effects. */
-function ScatterPlotCard({
-  title,
+function ScatterPlot({
   pairs,
-  pill,
   xLabel,
   yLabel,
   xFmt,
   yFmt,
+  height = 240,
 }: {
-  title: string;
   pairs: Pair[];
-  pill: number | null;
   xLabel: string;
   yLabel: string;
   xFmt?: (v: number) => string;
   yFmt?: (v: number) => string;
+  height?: number;
 }) {
-  // Bigger canvas for insight once data exists
-  const w = 460;
-  const h = 280;
-  const pad = 20;
-  const leftPad = 54;
-  const bottomPad = 40;
+  const w = 420;
+  const h = height;
+  const pad = 18;
+  const leftPad = 48;
+  const bottomPad = 36;
 
-  const has = pairs.length > 0;
-
-  if (!has) {
+  if (!pairs.length) {
     return (
-      <div className="rounded-2xl border border-zinc-200 p-4 dark:border-zinc-800">
-        <div className="flex items-center justify-between gap-3">
-          <div className="text-sm font-medium">{title}</div>
-          {pill == null ? null : <DeltaPill value={pill} />}
-        </div>
-
-        <div className="mt-4 min-h-[220px] rounded-2xl border border-dashed border-zinc-300 p-8 text-center text-sm text-zinc-600 dark:border-zinc-800 dark:text-zinc-400 flex items-center justify-center">
-          Not enough data.
-        </div>
-
-        <div className="mt-3 text-xs text-zinc-500">Pairs: 0</div>
+      <div className="mt-3 rounded-2xl border border-dashed border-zinc-300 p-8 text-center text-sm text-zinc-600 dark:border-zinc-800 dark:text-zinc-400">
+        Not enough data yet.
       </div>
     );
   }
@@ -290,101 +189,272 @@ function ScatterPlotCard({
   const maxY = Math.max(...ys);
 
   const sx = (v: number) =>
-    leftPad + ((v - minX) / Math.max(1e-9, maxX - minX)) * (w - leftPad - pad);
-
+    leftPad +
+    ((v - minX) / Math.max(1e-9, maxX - minX)) * (w - leftPad - pad);
   const sy = (v: number) =>
     pad + (1 - (v - minY) / Math.max(1e-9, maxY - minY)) * (h - pad - bottomPad);
 
-  // trend line
-  let trendPath: string | null = null;
-  if (pairs.length >= 2) {
-    const n = pairs.length;
-    const mx = xs.reduce((s, v) => s + v, 0) / n;
-    const my = ys.reduce((s, v) => s + v, 0) / n;
-    let num = 0;
-    let den = 0;
-    for (const p of pairs) {
-      num += (p.x - mx) * (p.y - my);
-      den += (p.x - mx) * (p.x - mx);
-    }
-    const slope = den ? num / den : 0;
-    const intercept = my - slope * mx;
-    const yAtMin = slope * minX + intercept;
-    const yAtMax = slope * maxX + intercept;
-    trendPath = `M ${sx(minX)} ${sy(yAtMin)} L ${sx(maxX)} ${sy(yAtMax)}`;
+  // least-squares trend line
+  const n = pairs.length;
+  const mx = xs.reduce((s, v) => s + v, 0) / n;
+  const my = ys.reduce((s, v) => s + v, 0) / n;
+  let num = 0;
+  let den = 0;
+  for (const p of pairs) {
+    num += (p.x - mx) * (p.y - my);
+    den += (p.x - mx) * (p.x - mx);
   }
+  const slope = den ? num / den : 0;
+  const intercept = my - slope * mx;
 
-  // minimal tick labels (just ends)
-  const xLeft = xFmt ? xFmt(minX) : `${Math.round(minX)}`;
-  const xRight = xFmt ? xFmt(maxX) : `${Math.round(maxX)}`;
-  const yTop = yFmt ? yFmt(maxY) : `${Math.round(maxY)}`;
-  const yBottom = yFmt ? yFmt(minY) : `${Math.round(minY)}`;
+  const yAtMin = slope * minX + intercept;
+  const yAtMax = slope * maxX + intercept;
+
+  const xTicks = [minX, (minX + maxX) / 2, maxX];
+  const yTicks = [minY, (minY + maxY) / 2, maxY];
 
   return (
-    <div className="rounded-2xl border border-zinc-200 p-4 dark:border-zinc-800">
-      <div className="flex items-center justify-between gap-3">
-        <div className="text-sm font-medium">{title}</div>
-        {pill == null ? null : <DeltaPill value={pill} />}
+    <div className="mt-3">
+      <svg viewBox={`0 0 ${w} ${h}`} className="w-full">
+        <line x1={leftPad} y1={h - bottomPad} x2={w - pad} y2={h - bottomPad} stroke="#e5e7eb" />
+        <line x1={leftPad} y1={pad} x2={leftPad} y2={h - bottomPad} stroke="#e5e7eb" />
+
+        {yTicks.map((v, i) => {
+          const y = sy(v);
+          const label = yFmt ? yFmt(v) : v.toFixed(1);
+          return (
+            <g key={i}>
+              <line x1={leftPad - 4} y1={y} x2={w - pad} y2={y} stroke="#f1f5f9" />
+              <text x={leftPad - 6} y={y + 3} textAnchor="end" fontSize="10" fill="#64748b">
+                {label}
+              </text>
+            </g>
+          );
+        })}
+
+        {xTicks.map((v, i) => {
+          const x = sx(v);
+          const label = xFmt ? xFmt(v) : v.toFixed(0);
+          return (
+            <g key={i}>
+              <line x1={x} y1={h - bottomPad} x2={x} y2={h - bottomPad + 4} stroke="#cbd5e1" />
+              <text x={x} y={h - 14} textAnchor="middle" fontSize="10" fill="#64748b">
+                {label}
+              </text>
+            </g>
+          );
+        })}
+
+        <path
+          d={`M ${sx(minX)} ${sy(yAtMin)} L ${sx(maxX)} ${sy(yAtMax)}`}
+          fill="none"
+          stroke="#94a3b8"
+          strokeWidth="2"
+        />
+
+        {pairs.map((p, i) => (
+          <circle key={i} cx={sx(p.x)} cy={sy(p.y)} r="4.5" fill="#2563eb" opacity="0.9" />
+        ))}
+
+        <text
+          x={(leftPad + (w - pad)) / 2}
+          y={h - 2}
+          textAnchor="middle"
+          fontSize="10"
+          fill="#64748b"
+        >
+          {xLabel}
+        </text>
+        <text
+          x={12}
+          y={(pad + (h - bottomPad)) / 2}
+          textAnchor="middle"
+          fontSize="10"
+          fill="#64748b"
+          transform={`rotate(-90 12 ${(pad + (h - bottomPad)) / 2})`}
+        >
+          {yLabel}
+        </text>
+      </svg>
+    </div>
+  );
+}
+
+/** Clean 7-day score line w/ bubbles + tiny score label above each bubble */
+function SevenDayScoreChart({ points }: { points: { day: string; value: number }[] }) {
+  const w = 420;
+  const h = 200;
+  const pad = 16;
+  const leftPad = 44;
+  const bottomPad = 34;
+
+  if (!points.length) {
+    return (
+      <div className="mt-3 rounded-2xl border border-dashed border-zinc-300 p-8 text-center text-sm text-zinc-600 dark:border-zinc-800 dark:text-zinc-400">
+        Not enough data yet.
       </div>
+    );
+  }
 
-      <div className="mt-4">
-        <svg viewBox={`0 0 ${w} ${h}`} className="w-full">
-          {/* axes */}
-          <line x1={leftPad} y1={h - bottomPad} x2={w - pad} y2={h - bottomPad} stroke="#e5e7eb" />
-          <line x1={leftPad} y1={pad} x2={leftPad} y2={h - bottomPad} stroke="#e5e7eb" />
+  const ys = points.map((p) => p.value);
+  const minY = Math.min(...ys, 0);
+  const maxY = Math.max(...ys, 100);
 
-          {/* trend */}
-          {trendPath ? <path d={trendPath} fill="none" stroke="#94a3b8" strokeWidth="2" /> : null}
+  const sx = (i: number) =>
+    leftPad +
+    (i / Math.max(1, points.length - 1)) * (w - leftPad - pad);
+  const sy = (v: number) =>
+    pad + (1 - (v - minY) / Math.max(1e-9, maxY - minY)) * (h - pad - bottomPad);
 
-          {/* points */}
-          {pairs.map((p, i) => (
-            <circle key={i} cx={sx(p.x)} cy={sy(p.y)} r="4.5" fill="#2563eb" opacity="0.85" />
-          ))}
+  const path = points
+    .map((p, i) => `${i ? "L" : "M"} ${sx(i)} ${sy(p.value)}`)
+    .join(" ");
 
-          {/* axis labels */}
-          <text
-            x={(leftPad + (w - pad)) / 2}
-            y={h - 6}
-            textAnchor="middle"
-            fontSize="11"
-            fill="#64748b"
-          >
-            {xLabel}
-          </text>
-          <text
-            x={14}
-            y={(pad + (h - bottomPad)) / 2}
-            textAnchor="middle"
-            fontSize="11"
-            fill="#64748b"
-            transform={`rotate(-90 14 ${(pad + (h - bottomPad)) / 2})`}
-          >
-            {yLabel}
-          </text>
+  const yTicks = [0, 50, 100];
 
-          {/* minimal ticks */}
-          <text x={leftPad} y={h - bottomPad + 18} fontSize="10" fill="#64748b">
-            {xLeft}
-          </text>
-          <text x={w - pad} y={h - bottomPad + 18} textAnchor="end" fontSize="10" fill="#64748b">
-            {xRight}
-          </text>
-          <text x={leftPad - 8} y={pad + 4} textAnchor="end" fontSize="10" fill="#64748b">
-            {yTop}
-          </text>
-          <text
-            x={leftPad - 8}
-            y={h - bottomPad + 4}
-            textAnchor="end"
-            fontSize="10"
-            fill="#64748b"
-          >
-            {yBottom}
-          </text>
-        </svg>
+  return (
+    <div className="mt-3">
+      <svg viewBox={`0 0 ${w} ${h}`} className="w-full">
+        <line x1={leftPad} y1={h - bottomPad} x2={w - pad} y2={h - bottomPad} stroke="#e5e7eb" />
+        <line x1={leftPad} y1={pad} x2={leftPad} y2={h - bottomPad} stroke="#e5e7eb" />
+
+        {yTicks.map((v, i) => {
+          const y = sy(v);
+          return (
+            <g key={i}>
+              <line x1={leftPad - 4} y1={y} x2={w - pad} y2={y} stroke="#f1f5f9" />
+              <text x={leftPad - 6} y={y + 3} textAnchor="end" fontSize="10" fill="#64748b">
+                {v}
+              </text>
+            </g>
+          );
+        })}
+
+        {points.map((p, i) => {
+          // show all 7 labels
+          const x = sx(i);
+          const lab = p.day.slice(5); // MM-DD
+          return (
+            <g key={p.day}>
+              <line x1={x} y1={h - bottomPad} x2={x} y2={h - bottomPad + 4} stroke="#cbd5e1" />
+              <text x={x} y={h - 10} textAnchor="middle" fontSize="10" fill="#64748b">
+                {lab}
+              </text>
+            </g>
+          );
+        })}
+
+        <path d={path} fill="none" stroke="#2563eb" strokeWidth="2.5" />
+
+        {points.map((p, i) => {
+          const x = sx(i);
+          const y = sy(p.value);
+          return (
+            <g key={p.day}>
+              <text
+                x={x}
+                y={y - 10}
+                textAnchor="middle"
+                fontSize="10"
+                fill="#64748b"
+              >
+                {Math.round(p.value)}
+              </text>
+              <circle cx={x} cy={y} r="5" fill="#2563eb" />
+              <circle cx={x} cy={y} r="8" fill="#2563eb" opacity="0.12" />
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
+/** 14-day goal completion bars (ratio actual/target), different from score line */
+function GoalCompletionBars({ points }: { points: DayPoint[] }) {
+  const w = 420;
+  const h = 190;
+  const pad = 16;
+  const leftPad = 44;
+  const bottomPad = 34;
+
+  if (!points.length) {
+    return <div className="h-44" />;
+  }
+
+  const vals = points.map((p) => {
+    const r = p.target > 0 ? p.actual / p.target : 0;
+    return clamp(r, 0, 1.2);
+  });
+
+  const maxY = 1.2; // allow slight over-target
+  const sx = (i: number) =>
+    leftPad +
+    (i / Math.max(1, points.length - 1)) * (w - leftPad - pad);
+
+  const barW = Math.max(6, Math.min(14, (w - leftPad - pad) / points.length - 4));
+  const sy = (v: number) =>
+    pad + (1 - v / maxY) * (h - pad - bottomPad);
+
+  const yTicks = [0, 0.5, 1.0, 1.2];
+
+  return (
+    <div className="mt-3">
+      <svg viewBox={`0 0 ${w} ${h}`} className="w-full">
+        <line x1={leftPad} y1={h - bottomPad} x2={w - pad} y2={h - bottomPad} stroke="#e5e7eb" />
+        <line x1={leftPad} y1={pad} x2={leftPad} y2={h - bottomPad} stroke="#e5e7eb" />
+
+        {yTicks.map((v, i) => {
+          const y = sy(v);
+          const lab = v === 1 ? "1.0" : v.toFixed(1);
+          return (
+            <g key={i}>
+              <line x1={leftPad - 4} y1={y} x2={w - pad} y2={y} stroke="#f1f5f9" />
+              <text x={leftPad - 6} y={y + 3} textAnchor="end" fontSize="10" fill="#64748b">
+                {lab}
+              </text>
+            </g>
+          );
+        })}
+
+        {/* target line at 1.0 */}
+        <line x1={leftPad} y1={sy(1)} x2={w - pad} y2={sy(1)} stroke="#94a3b8" strokeDasharray="4 4" />
+
+        {points.map((p, i) => {
+          const x = sx(i);
+          const v = vals[i];
+          const y = sy(v);
+          const baseY = h - bottomPad;
+          const x0 = x - barW / 2;
+          const dayLab = p.date.slice(5);
+
+          // sparse x labels
+          const showLabel = points.length <= 10 || i % Math.ceil(points.length / 6) === 0 || i === points.length - 1;
+
+          return (
+            <g key={p.date}>
+              <rect
+                x={x0}
+                y={y}
+                width={barW}
+                height={Math.max(0, baseY - y)}
+                rx={4}
+                fill="#2563eb"
+                opacity="0.85"
+              />
+              {showLabel ? (
+                <text x={x} y={h - 10} textAnchor="middle" fontSize="10" fill="#64748b">
+                  {dayLab}
+                </text>
+              ) : null}
+            </g>
+          );
+        })}
+      </svg>
+
+      <div className="mt-2 text-xs text-zinc-500">
+        Goal Completion Ratio (Actual ÷ Target) • Dashed line = 1.0 target
       </div>
-
-      <div className="mt-3 text-xs text-zinc-500">Pairs: {pairs.length}</div>
     </div>
   );
 }
@@ -395,24 +465,24 @@ export default function InsightsPage() {
   const today = useMemo(() => formatNYDate(new Date()), []);
   const [selectedDate, setSelectedDate] = useState<string>(today);
 
+  // ✅ Sync selectedDate from URL on mount, back/forward, AND hydra:datechange
   useEffect(() => {
     const sync = () => {
       const iso = readSelectedDateFromLocation(today);
       setSelectedDate(isISODate(iso) ? iso : today);
     };
-
     sync();
     window.addEventListener("popstate", sync);
-    window.addEventListener("hydra:datechange", sync);
+    window.addEventListener("hydra:datechange", sync as EventListener);
     return () => {
       window.removeEventListener("popstate", sync);
-      window.removeEventListener("hydra:datechange", sync);
+      window.removeEventListener("hydra:datechange", sync as EventListener);
     };
   }, [today]);
 
   const isToday = selectedDate === today;
 
-  const [points, setPoints] = useState<DayPoint[]>([]);
+  const [points14, setPoints14] = useState<DayPoint[]>([]);
   const [tab, setTab] = useState<"today" | "history">("today");
 
   const [whoopSelected, setWhoopSelected] = useState<{
@@ -420,9 +490,11 @@ export default function InsightsPage() {
     recovery: number | null;
   } | null>(null);
 
+  // Server history snapshots
   const [historyRows, setHistoryRows] = useState<HistoryRow[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
+  // Fetch WHOOP sleep/recovery for selected day
   useEffect(() => {
     (async () => {
       try {
@@ -452,20 +524,13 @@ export default function InsightsPage() {
     })();
   }, [selectedDate]);
 
-  // 14-day local points (for History bottom trend)
+  // Local-derived 14-day points
   useEffect(() => {
     const prof = getProfile();
     const weight = prof?.weight_kg ?? 0;
+    const dates = lastNDatesNY(14);
 
-    const arr: string[] = [];
-    const now = new Date();
-    for (let i = 0; i < 14; i++) {
-      const d = new Date(now);
-      d.setDate(now.getDate() - i);
-      arr.push(formatNYDate(d));
-    }
-
-    const out: DayPoint[] = arr.map((date) => {
+    const out: DayPoint[] = dates.map((date) => {
       const intakes = getIntakesByDateNY(date);
       const actual = intakes.reduce((s, i) => s + i.volume_ml, 0);
 
@@ -501,9 +566,10 @@ export default function InsightsPage() {
       return { date, actual, target, score };
     });
 
-    setPoints(out.reverse());
+    setPoints14(out.reverse());
   }, []);
 
+  // Fetch history snapshots when opening History tab (cache after first load)
   useEffect(() => {
     if (tab !== "history") return;
     if (historyRows.length) return;
@@ -511,7 +577,9 @@ export default function InsightsPage() {
     (async () => {
       setHistoryLoading(true);
       try {
-        const res = await fetch("/api/history?days=180", { credentials: "include" });
+        const res = await fetch("/api/history?days=180", {
+          credentials: "include",
+        });
         if (res.ok) {
           const j = await res.json();
           setHistoryRows(Array.isArray(j) ? j : []);
@@ -521,6 +589,7 @@ export default function InsightsPage() {
     })();
   }, [tab, historyRows.length]);
 
+  // Breakdown of selected day's target
   const dayBreakdown = useMemo(() => {
     const prof = getProfile();
     const weight = prof?.weight_kg ?? 0;
@@ -548,7 +617,7 @@ export default function InsightsPage() {
       .reduce((sum, s) => sum + (s.grams || 0) * 70, 0);
 
     const lines: { label: string; added: number }[] = [
-      { label: "Base need", added: base },
+      { label: "Base Need", added: base },
       ...workoutLines,
     ];
     if (creatineMl > 0) lines.push({ label: "Creatine", added: Math.round(creatineMl) });
@@ -563,7 +632,10 @@ export default function InsightsPage() {
       if (h < 7.5) sAdj = Math.max(0, 7.5 - h) * 0.03;
       else if (h > 8.5) sAdj = -Math.max(0, h - 8.5) * 0.02;
       modPct += sAdj;
-      lines.push({ label: `Sleep (${h.toFixed(1)} h)`, added: Math.round(baseTarget * sAdj) });
+      lines.push({
+        label: `Sleep (${h.toFixed(1)} h)`,
+        added: Math.round(baseTarget * sAdj),
+      });
     }
 
     if (whoopSelected?.recovery != null) {
@@ -572,7 +644,10 @@ export default function InsightsPage() {
       if (r < 33) rAdj = 0.05;
       else if (r < 66) rAdj = 0.02;
       modPct += rAdj;
-      lines.push({ label: `Recovery (${Math.round(r)}%)`, added: Math.round(baseTarget * rAdj) });
+      lines.push({
+        label: `Recovery (${Math.round(r)}%)`,
+        added: Math.round(baseTarget * rAdj),
+      });
     }
 
     const total = Math.round(baseTarget + baseTarget * modPct);
@@ -600,100 +675,34 @@ export default function InsightsPage() {
     return { actual, target, score };
   }, [selectedDate, dayBreakdown]);
 
+  // Quick insight cards (Selected day)
   const quick = useMemo(() => {
     const messages: { title: string; body: string }[] = [];
 
     const deficit = Math.max(0, selectedTotals.target - selectedTotals.actual);
     if (selectedTotals.target > 0) {
       if (deficit > 0)
-        messages.push({ title: "Hydration pacing", body: `~${Math.round(deficit / 29.5735)} oz behind target.` });
-      else messages.push({ title: "Hydration pacing", body: "On pace or ahead of target." });
+        messages.push({
+          title: "Hydration Pacing",
+          body: `You're ~${Math.round(deficit / 29.5735)} oz behind target.`,
+        });
+      else messages.push({ title: "Hydration Pacing", body: "You're on pace or ahead of target." });
     }
 
     if (whoopSelected?.sleepHours != null || whoopSelected?.recovery != null) {
       const parts: string[] = [];
       if (whoopSelected.sleepHours != null) parts.push(`Sleep ${whoopSelected.sleepHours.toFixed(1)} h`);
       if (whoopSelected.recovery != null) parts.push(`Recovery ${Math.round(whoopSelected.recovery)}%`);
-      messages.push({ title: "WHOOP synergy", body: parts.join(" • ") });
+      messages.push({
+        title: "WHOOP Synergy",
+        body: `Target accounts for ${parts.join(", ")}.`,
+      });
     }
 
     return messages.slice(0, 5);
   }, [selectedTotals, whoopSelected]);
 
-  // 7-day series ending on selectedDate (History top chart)
-  const series7D = useMemo(() => {
-    const prof = getProfile();
-    const weight = prof?.weight_kg ?? 0;
-
-    const days = Array.from({ length: 7 }).map((_, i) => addDaysISO(selectedDate, -(6 - i)));
-
-    const pts = days.map((date) => {
-      const intakes = getIntakesByDateNY(date);
-      const actual = intakes.reduce((s, x) => s + x.volume_ml, 0);
-
-      let target = 0;
-      if (weight > 0) {
-        const workouts = getWorkoutsByDateNY(date);
-        const workoutAdj = workouts.reduce((sum, w) => {
-          const start = new Date(w.start_time);
-          const end = w.end_time ? new Date(w.end_time) : start;
-          const mins = Math.max(0, Math.round((end.getTime() - start.getTime()) / 60000));
-          const strain =
-            typeof w.intensity === "number" ? Math.max(0, Math.min(21, w.intensity)) : 5;
-          const intensityFactor = 0.5 + strain / 21;
-          return sum + mins * WORKOUT_ML_PER_MIN * intensityFactor;
-        }, 0);
-
-        target = Math.round(weight * 35 + workoutAdj);
-      }
-
-      const score =
-        target > 0
-          ? calculateHydrationScore({
-              targetMl: target,
-              actualMl: actual,
-              intakes: intakes.map((i) => ({
-                timestamp: new Date(i.timestamp),
-                volumeMl: i.volume_ml,
-              })),
-              workouts: [],
-            })
-          : 0;
-
-      return { day: date, value: Number(score.toFixed(1)) };
-    });
-
-    const any = pts.some((p) => p.value > 0);
-    return any ? pts : [];
-  }, [selectedDate]);
-
-  // 14-day trend series from local points you already compute
-  const series14D = useMemo(() => {
-    const pts = points.map((p) => ({ day: p.date, value: Number(p.score.toFixed(1)) }));
-    const any = pts.some((p) => p.value > 0);
-    return any ? pts : [];
-  }, [points]);
-
-  const stats14D = useMemo(() => {
-    if (!series14D.length) return null;
-
-    const values = series14D.map((p) => p.value);
-    const avg = mean(values) ?? 0;
-
-    let best = series14D[0];
-    for (const p of series14D) if (p.value > best.value) best = p;
-
-    // streak >= 75 ending on most recent day in the series
-    const THRESH = 75;
-    let streak = 0;
-    for (let i = series14D.length - 1; i >= 0; i--) {
-      if (series14D[i].value >= THRESH) streak++;
-      else break;
-    }
-
-    return { avg, bestDay: best.day, bestScore: best.value, streak75: streak, threshold: THRESH };
-  }, [series14D]);
-
+  // ---- HISTORY (Lag Effects + 7D trend + 14D summary) ----
   const historySorted = useMemo(() => {
     const rows = [...historyRows].filter((r) => isISODate(r.day));
     rows.sort((a, b) => a.day.localeCompare(b.day));
@@ -717,16 +726,36 @@ export default function InsightsPage() {
 
       if (todayRow.sleep_hours != null) {
         if (Number.isFinite(yRow.hydration_score))
-          scoreToSleep.push({ x: Number(yRow.hydration_score), y: Number(todayRow.sleep_hours), dayToday, dayYesterday });
+          scoreToSleep.push({
+            x: Number(yRow.hydration_score),
+            y: Number(todayRow.sleep_hours),
+            dayToday,
+            dayYesterday,
+          });
         if (Number.isFinite(yRow.total_oz))
-          ozToSleep.push({ x: Number(yRow.total_oz), y: Number(todayRow.sleep_hours), dayToday, dayYesterday });
+          ozToSleep.push({
+            x: Number(yRow.total_oz),
+            y: Number(todayRow.sleep_hours),
+            dayToday,
+            dayYesterday,
+          });
       }
 
       if (todayRow.recovery_pct != null) {
         if (Number.isFinite(yRow.hydration_score))
-          scoreToRecovery.push({ x: Number(yRow.hydration_score), y: Number(todayRow.recovery_pct), dayToday, dayYesterday });
+          scoreToRecovery.push({
+            x: Number(yRow.hydration_score),
+            y: Number(todayRow.recovery_pct),
+            dayToday,
+            dayYesterday,
+          });
         if (Number.isFinite(yRow.total_oz))
-          ozToRecovery.push({ x: Number(yRow.total_oz), y: Number(todayRow.recovery_pct), dayToday, dayYesterday });
+          ozToRecovery.push({
+            x: Number(yRow.total_oz),
+            y: Number(todayRow.recovery_pct),
+            dayToday,
+            dayYesterday,
+          });
       }
     }
 
@@ -747,6 +776,42 @@ export default function InsightsPage() {
       oz_recovery: corr(lagPairs.ozToRecovery),
     };
   }, [lagPairs]);
+
+  // 7-day score series from saved history (preferred); fallback to local 14-day
+  const last7Series = useMemo(() => {
+    const fromHistory = historySorted
+      .slice(Math.max(0, historySorted.length - 7))
+      .map((r) => ({ day: r.day, value: Number(r.hydration_score) }))
+      .filter((p) => Number.isFinite(p.value));
+
+    if (fromHistory.length >= 3) return fromHistory;
+
+    const fallback = points14
+      .slice(Math.max(0, points14.length - 7))
+      .map((p) => ({ day: p.date, value: Number(p.score) }))
+      .filter((p) => Number.isFinite(p.value));
+
+    return fallback;
+  }, [historySorted, points14]);
+
+  // 14-day summary KPIs from local points (always available if you logged)
+  const last14Stats = useMemo(() => {
+    const pts = points14.slice(-14);
+    if (!pts.length) return { avg: null as number | null, best: null as DayPoint | null, streak: 0 };
+
+    const avg = pts.reduce((s, p) => s + (Number.isFinite(p.score) ? p.score : 0), 0) / pts.length;
+    const best = pts.reduce((b, p) => (p.score > b.score ? p : b), pts[0]);
+
+    // streak of score >= 75 (from most recent backwards)
+    const THRESH = 75;
+    let streak = 0;
+    for (let i = pts.length - 1; i >= 0; i--) {
+      if (Number(pts[i].score) >= THRESH) streak++;
+      else break;
+    }
+
+    return { avg, best, streak, threshold: THRESH, pts };
+  }, [points14]);
 
   return (
     <div className="px-4 pb-4 pt-[calc(72px+env(safe-area-inset-top))]">
@@ -772,7 +837,7 @@ export default function InsightsPage() {
               <div className="w-[160px] shrink-0">
                 <RadialGauge
                   value={Math.min(1, selectedTotals.actual / Math.max(1, selectedTotals.target || 0))}
-                  label={isToday ? "Today" : "Selected day"}
+                  label={isToday ? "Today" : "Selected Day"}
                 />
               </div>
 
@@ -793,7 +858,7 @@ export default function InsightsPage() {
                     onClick={() => router.push(`/log?date=${selectedDate}`)}
                     className="rounded-xl border px-3 py-2 text-sm hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-900"
                   >
-                    Log drink
+                    Log Drink
                   </button>
                 </div>
               </div>
@@ -803,7 +868,7 @@ export default function InsightsPage() {
           {dayBreakdown ? (
             <section className="mt-4">
               <Card className="p-4">
-                <p className="mb-2 text-sm text-zinc-600 dark:text-zinc-400">Target drivers</p>
+                <p className="mb-2 text-sm text-zinc-600 dark:text-zinc-400">Target Drivers</p>
                 <ul className="space-y-1 text-sm">
                   {dayBreakdown.lines.map((l, i) => (
                     <li key={i} className="flex items-center justify-between">
@@ -813,7 +878,7 @@ export default function InsightsPage() {
                   ))}
                 </ul>
                 <div className="mt-2 flex items-center justify-between border-t pt-2 text-sm">
-                  <span className="font-medium">Total target</span>
+                  <span className="font-medium">Total Target</span>
                   <span className="tabular-nums font-medium">
                     {Math.round(dayBreakdown.total / 29.5735)} oz
                   </span>
@@ -829,7 +894,6 @@ export default function InsightsPage() {
                 <p className="text-zinc-700 dark:text-zinc-300">{q.body}</p>
               </Card>
             ))}
-
             {quick.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-zinc-300 p-6 text-center text-sm text-zinc-600 dark:border-zinc-800 dark:text-zinc-400">
                 Add a profile, log a drink or a workout to see insights.
@@ -839,117 +903,162 @@ export default function InsightsPage() {
         </>
       ) : (
         <>
-          {/* 7-day chart */}
+          {/* 7-Day Trend (Clean, professional) */}
           <section className="mt-4">
             <Card className="p-4">
-              <div className="flex items-baseline justify-between gap-3">
-                <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                  Hydration Score (Last 7 Days)
-                </p>
-                {historyLoading ? <span className="text-xs text-zinc-500">Loading…</span> : null}
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                    Hydration Score (Last 7 Days)
+                  </p>
+                  <p className="mt-1 text-xs text-zinc-500">
+                    Each point is your daily score (built from logged intake/workouts).
+                  </p>
+                </div>
+                {historyLoading ? (
+                  <span className="text-xs text-zinc-500">Loading…</span>
+                ) : null}
               </div>
-              <BubbleLineChart points={series7D} />
+
+              <SevenDayScoreChart points={last7Series} />
             </Card>
           </section>
 
-          {/* Lag Effects — bigger + spaced */}
+          {/* Lag Effects (Bigger, spaced, minimal text, KPI correlation) */}
           <section className="mt-4">
             <Card className="p-4">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Lag Effects</p>
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Lag Effects</p>
                 {historyRows.length === 0 && !historyLoading ? (
                   <span className="text-xs text-zinc-500">No saved history yet.</span>
                 ) : null}
               </div>
 
-              {/* ✅ More spacing + larger cards:
-                  - mobile: 1 column (bigger charts)
-                  - md+: 2 columns */}
               <div className="mt-4 grid gap-4 md:grid-cols-2">
-                <ScatterPlotCard
-                  title="Score → Sleep (Next Day)"
-                  pairs={lagPairs.scoreToSleep}
-                  pill={lagCorr.score_sleep}
-                  xLabel="Yesterday score"
-                  yLabel="Sleep (h)"
-                  xFmt={(v) => `${Math.round(v)}`}
-                  yFmt={(v) => `${v.toFixed(1)}`}
-                />
+                <div className="rounded-2xl border border-zinc-200 p-4 dark:border-zinc-800">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-sm font-medium">Score → Sleep (Next Day)</div>
+                    <CorrKPI value={lagCorr.score_sleep} />
+                  </div>
+                  <ScatterPlot
+                    pairs={lagPairs.scoreToSleep}
+                    xLabel="Yesterday Score"
+                    yLabel="Sleep (h)"
+                    xFmt={(v) => `${Math.round(v)}`}
+                    yFmt={(v) => `${v.toFixed(1)}`}
+                    height={260}
+                  />
+                  <p className="mt-2 text-xs text-zinc-500">Pairs: {lagPairs.scoreToSleep.length}</p>
+                </div>
 
-                <ScatterPlotCard
-                  title="Oz → Recovery (Next Day)"
-                  pairs={lagPairs.ozToRecovery}
-                  pill={lagCorr.oz_recovery}
-                  xLabel="Yesterday oz"
-                  yLabel="Recovery (%)"
-                  xFmt={(v) => `${Math.round(v)}`}
-                  yFmt={(v) => `${Math.round(v)}`}
-                />
+                <div className="rounded-2xl border border-zinc-200 p-4 dark:border-zinc-800">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-sm font-medium">Oz → Recovery (Next Day)</div>
+                    <CorrKPI value={lagCorr.oz_recovery} />
+                  </div>
+                  <ScatterPlot
+                    pairs={lagPairs.ozToRecovery}
+                    xLabel="Yesterday Oz"
+                    yLabel="Recovery (%)"
+                    xFmt={(v) => `${Math.round(v)}`}
+                    yFmt={(v) => `${Math.round(v)}`}
+                    height={260}
+                  />
+                  <p className="mt-2 text-xs text-zinc-500">Pairs: {lagPairs.ozToRecovery.length}</p>
+                </div>
 
-                <ScatterPlotCard
-                  title="Oz → Sleep (Next Day)"
-                  pairs={lagPairs.ozToSleep}
-                  pill={lagCorr.oz_sleep}
-                  xLabel="Yesterday oz"
-                  yLabel="Sleep (h)"
-                  xFmt={(v) => `${Math.round(v)}`}
-                  yFmt={(v) => `${v.toFixed(1)}`}
-                />
+                <div className="rounded-2xl border border-zinc-200 p-4 dark:border-zinc-800">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-sm font-medium">Oz → Sleep (Next Day)</div>
+                    <CorrKPI value={lagCorr.oz_sleep} />
+                  </div>
+                  <ScatterPlot
+                    pairs={lagPairs.ozToSleep}
+                    xLabel="Yesterday Oz"
+                    yLabel="Sleep (h)"
+                    xFmt={(v) => `${Math.round(v)}`}
+                    yFmt={(v) => `${v.toFixed(1)}`}
+                    height={260}
+                  />
+                  <p className="mt-2 text-xs text-zinc-500">Pairs: {lagPairs.ozToSleep.length}</p>
+                </div>
 
-                <ScatterPlotCard
-                  title="Score → Recovery (Next Day)"
-                  pairs={lagPairs.scoreToRecovery}
-                  pill={lagCorr.score_recovery}
-                  xLabel="Yesterday score"
-                  yLabel="Recovery (%)"
-                  xFmt={(v) => `${Math.round(v)}`}
-                  yFmt={(v) => `${Math.round(v)}`}
-                />
+                <div className="rounded-2xl border border-zinc-200 p-4 dark:border-zinc-800">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-sm font-medium">Score → Recovery (Next Day)</div>
+                    <CorrKPI value={lagCorr.score_recovery} />
+                  </div>
+                  <ScatterPlot
+                    pairs={lagPairs.scoreToRecovery}
+                    xLabel="Yesterday Score"
+                    yLabel="Recovery (%)"
+                    xFmt={(v) => `${Math.round(v)}`}
+                    yFmt={(v) => `${Math.round(v)}`}
+                    height={260}
+                  />
+                  <p className="mt-2 text-xs text-zinc-500">Pairs: {lagPairs.scoreToRecovery.length}</p>
+                </div>
               </div>
+
+              <p className="mt-3 text-xs text-zinc-500">
+                Correlation is a directional signal check—not proof of causation.
+              </p>
             </Card>
           </section>
 
-          {/* 14-day: replace “meaningless green grid” with a real trend + stats */}
+          {/* 14-Day Summary: keep 3 cards, change chart to a different data/visual */}
           <section className="mt-4">
             <Card className="p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                    Hydration Score (Last 14 Days)
-                  </p>
-                  <p className="mt-1 text-xs text-zinc-500">
-                    Trend + key signals (built from your logged intake/workouts).
-                  </p>
+              <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                Hydration (Last 14 Days)
+              </p>
+              <p className="mt-1 text-xs text-zinc-500">
+                Trend + key signals (built from your logged intake/workouts).
+              </p>
+
+              <div className="mt-4 grid grid-cols-3 gap-3">
+                <div className="rounded-2xl border border-zinc-200 p-3 dark:border-zinc-800">
+                  <div className="text-xs text-zinc-500">Avg</div>
+                  <div className="mt-1 text-2xl font-semibold tabular-nums">
+                    {last14Stats.avg == null ? "—" : Math.round(last14Stats.avg)}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-zinc-200 p-3 dark:border-zinc-800">
+                  <div className="text-xs text-zinc-500">Best</div>
+                  <div className="mt-1 text-2xl font-semibold tabular-nums">
+                    {last14Stats.best ? Math.round(last14Stats.best.score) : "—"}
+                  </div>
+                  <div className="mt-1 text-xs text-zinc-500">
+                    {last14Stats.best ? last14Stats.best.date : ""}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-zinc-200 p-3 dark:border-zinc-800">
+                  <div className="text-xs text-zinc-500">Streak</div>
+                  <div className="mt-1 text-2xl font-semibold tabular-nums">
+                    {last14Stats.streak ?? 0}
+                  </div>
+                  <div className="mt-1 text-xs text-zinc-500">
+                    Days ≥ {last14Stats.threshold ?? 75}
+                  </div>
                 </div>
               </div>
 
-              {/* Stats row */}
-              {stats14D ? (
-                <div className="mt-3 grid grid-cols-3 gap-2">
-                  <div className="rounded-2xl border border-zinc-200 p-3 dark:border-zinc-800">
-                    <div className="text-[11px] text-zinc-500">Avg</div>
-                    <div className="mt-1 text-xl font-semibold tabular-nums">
-                      {Math.round(stats14D.avg)}
-                    </div>
-                  </div>
-                  <div className="rounded-2xl border border-zinc-200 p-3 dark:border-zinc-800">
-                    <div className="text-[11px] text-zinc-500">Best</div>
-                    <div className="mt-1 text-xl font-semibold tabular-nums">
-                      {Math.round(stats14D.bestScore)}
-                    </div>
-                    <div className="mt-1 text-[11px] text-zinc-500">{stats14D.bestDay}</div>
-                  </div>
-                  <div className="rounded-2xl border border-zinc-200 p-3 dark:border-zinc-800">
-                    <div className="text-[11px] text-zinc-500">Streak</div>
-                    <div className="mt-1 text-xl font-semibold tabular-nums">
-                      {stats14D.streak75}
-                    </div>
-                    <div className="mt-1 text-[11px] text-zinc-500">Days ≥ {stats14D.threshold}</div>
-                  </div>
-                </div>
-              ) : null}
+              {/* NEW visual: goal completion bars (not another score line) */}
+              <GoalCompletionBars points={(last14Stats as any).pts ?? points14} />
 
-              <BubbleLineChart points={series14D} compactXLabels />
+              {/* Optional secondary: local heatmap (kept, but now supports the bars rather than being the only visual) */}
+              <div className="mt-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                    Score Heatmap (14 Days)
+                  </p>
+                </div>
+                <div className="mt-2">
+                  <CalendarHeatmap cells={points14.map((p) => ({ date: p.date, value: p.score }))} />
+                </div>
+              </div>
             </Card>
           </section>
         </>
