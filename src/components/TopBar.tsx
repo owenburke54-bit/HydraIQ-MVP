@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Suspense } from "react";
 import { Droplet, User } from "lucide-react";
 import TopBarClient from "./TopBarClient";
 
@@ -25,19 +24,9 @@ export default function TopBar() {
           </Link>
         </div>
 
-        {/* Date switcher (client component) wrapped by Suspense in SERVER component */}
+        {/* Date switcher */}
         <div className="mt-2">
-          <Suspense
-            fallback={
-              <div className="flex items-center justify-between gap-2">
-                <div className="h-9 w-10 rounded-xl border border-zinc-200 dark:border-zinc-800" />
-                <div className="h-9 flex-1 rounded-xl border border-zinc-200 dark:border-zinc-800" />
-                <div className="h-9 w-10 rounded-xl border border-zinc-200 dark:border-zinc-800" />
-              </div>
-            }
-          >
-            <TopBarClient />
-          </Suspense>
+          <TopBarClient />
         </div>
       </div>
     </header>
