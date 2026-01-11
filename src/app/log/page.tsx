@@ -108,8 +108,12 @@ export default function LogPage() {
   function goToDate(iso: string) {
     // Guard: never allow future dates
     const safe = iso > todayISO ? todayISO : iso;
+
+    // URL is source of truth:
     router.push(`/log?date=${safe}`);
-    setSelectedDate(safe);
+
+    // router.push doesn't fire popstate → tell the app to resync from URL
+    window.dispatchEvent(new Event("hydra:datechange"));
   }
 
   return (

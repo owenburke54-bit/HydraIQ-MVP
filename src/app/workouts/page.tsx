@@ -52,6 +52,10 @@ export default function WorkoutsPage() {
   const todayISO = useMemo(() => formatNYDate(new Date()), []);
   const [selectedDate, setSelectedDate] = useState<string>(todayISO);
 
+  // Used to force refresh of useMemo after mutations (instead of full reloads)
+  const [refreshKey, setRefreshKey] = useState(0);
+  const bump = () => setRefreshKey((k) => k + 1);
+
   // ✅ No useSearchParams() (avoids /_not-found Suspense build failures)
   // ✅ Sync selectedDate from URL on mount, back/forward, AND our custom date-change event.
   useEffect(() => {
@@ -91,7 +95,10 @@ export default function WorkoutsPage() {
     setError(null);
   }, [selectedDate]);
 
-  const workoutsForDay = useMemo(() => getWorkoutsByDateNY(selectedDate), [selectedDate]);
+  const workoutsForDay = useMemo(
+    () => getWorkoutsByDateNY(selectedDate),
+    [selectedDate, refreshKey]
+  );
 
   const workoutOptions = [
     "Soccer",
@@ -105,10 +112,7 @@ export default function WorkoutsPage() {
   ];
 
   return (
-    // Match Home/Log spacing so content clears the fixed TopBar, without a huge gap.
     <div className="px-4 pb-4 pt-[calc(72px+env(safe-area-inset-top))]">
-      {/* Date toggle belongs ONLY in the TopBar now — removed DateSwitcher from page */}
-
       <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold">Workouts</h1>
@@ -194,7 +198,7 @@ export default function WorkoutsPage() {
                       intensity,
                     });
                     setMessage("Saved workout");
-                    setTimeout(() => window.location.reload(), 300);
+                    bump();
                   } catch (e: any) {
                     setError(e?.message || "Failed to save workout");
                   } finally {
@@ -229,6 +233,8 @@ export default function WorkoutsPage() {
             disabled={!isToday}
             title={!isToday ? "WHOOP import is only available for Today right now" : ""}
             onClick={async () => {
+              setMessage(null);
+              setError(null);
               try {
                 const res = await fetch(`/api/whoop/sync?date=${selectedDate}`, {
                   credentials: "include",
@@ -257,13 +263,13 @@ export default function WorkoutsPage() {
                       count++;
                     } catch {}
                   }
-                  alert(`Imported ${count} WHOOP activities`);
-                  location.reload();
+                  setMessage(`Imported ${count} WHOOP activities`);
+                  bump();
                 } else {
-                  alert(json?.error ?? "WHOOP not connected");
+                  setError(json?.error ?? "WHOOP not connected");
                 }
               } catch {
-                alert("Failed to import from WHOOP");
+                setError("Failed to import from WHOOP");
               }
             }}
           >
@@ -274,7 +280,13 @@ export default function WorkoutsPage() {
         {workoutsForDay.length === 0 ? (
           <p className="text-sm text-zinc-600 dark:text-zinc-400">No workouts logged for this day.</p>
         ) : (
-          <ListEditable workouts={workoutsForDay} selectedDate={selectedDate} />
+          <ListEditable
+            workouts={workoutsForDay}
+            selectedDate={selectedDate}
+            onRefresh={bump}
+            onMessage={setMessage}
+            onError={setError}
+          />
         )}
 
         {error ? <p className="pt-2 text-center text-sm text-red-600">{error}</p> : null}
@@ -284,7 +296,19 @@ export default function WorkoutsPage() {
   );
 }
 
-function ListEditable({ workouts, selectedDate }: { workouts: any[]; selectedDate: string }) {
+function ListEditable({
+  workouts,
+  selectedDate,
+  onRefresh,
+  onMessage,
+  onError,
+}: {
+  workouts: any[];
+  selectedDate: string;
+  onRefresh: () => void;
+  onMessage: (m: string | null) => void;
+  onError: (e: string | null) => void;
+}) {
   const [editing, setEditing] = useState<string | null>(null);
   const [form, setForm] = useState<any>(null);
 
@@ -328,6 +352,8 @@ function ListEditable({ workouts, selectedDate }: { workouts: any[]; selectedDat
                         ),
                         intensity: w.intensity ?? 5,
                       });
+                      onMessage(null);
+                      onError(null);
                     }}
                   >
                     Edit
@@ -337,7 +363,9 @@ function ListEditable({ workouts, selectedDate }: { workouts: any[]; selectedDat
                     onClick={() => {
                       if (confirm("Delete this workout?")) {
                         deleteWorkout(w.id);
-                        location.reload();
+                        onMessage("Deleted workout");
+                        onError(null);
+                        onRefresh();
                       }
                     }}
                   >
@@ -388,7 +416,10 @@ function ListEditable({ workouts, selectedDate }: { workouts: any[]; selectedDat
                         end_time: new Date(coerce(form.end)).toISOString(),
                         intensity: form.intensity,
                       });
-                      location.reload();
+                      setEditing(null);
+                      onMessage("Saved workout");
+                      onError(null);
+                      onRefresh();
                     }}
                   >
                     Save
