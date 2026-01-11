@@ -16,6 +16,34 @@ import {
 import { calculateHydrationScore, WORKOUT_ML_PER_MIN } from "../lib/hydration";
 import { isISODate, readSelectedDateFromLocation } from "@/lib/selectedDate";
 
+const OZ_PER_ML = 1 / 29.5735;
+
+function toOz(ml: number) {
+  return Math.round(ml * OZ_PER_ML);
+}
+
+function fmtTimeNY(d: Date) {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  })
+    .format(d)
+    .toLowerCase();
+}
+
+type HabitTip = {
+  title: string;
+  body: string;
+};
+
+type RiskTip = {
+  title: string;
+  body: string;
+  level: "normal" | "elevated";
+};
+
 export default function Home() {
   const todayISO = useMemo(() => formatNYDate(new Date()), []);
   const [selectedDate, setSelectedDate] = useState<string>(todayISO);
@@ -192,6 +220,184 @@ export default function Home() {
     })();
   }, [selectedDate, isToday]);
 
+  // --- Recommendations (ideas 4, 7, 8) ---
+  const rec = useMemo(() => {
+    const flags = state.flags || { workouts: false, creatine: false, env: false, whoop: false };
+
+    const targetMl = state.target || 0;
+    const actualMl = state.actual || 0;
+
+    const targetOz = toOz(targetMl);
+    const actualOz = toOz(actualMl);
+
+    const deficitMl = Math.max(0, targetMl - actualMl);
+    const deficitOz = toOz(deficitMl);
+
+    // Habit/pattern coaching (Idea 4)
+    const tips: HabitTip[] = [];
+    let patternLabel: string | null = null;
+
+    try {
+      // Bucket today/selected-day intakes by time of day (local device hour)
+      const ints = [...state.intakes].sort(
+        (a, b) => +new Date(a.timestamp) - +new Date(b.timestamp)
+      );
+      const totalMl = ints.reduce((s, i) => s + i.volume_ml, 0);
+
+      const first = ints.length ? new Date(ints[0].timestamp) : null;
+      const last = ints.length ? new Date(ints[ints.length - 1].timestamp) : null;
+
+      let morningMl = 0,
+        afternoonMl = 0,
+        eveningMl = 0;
+
+      ints.forEach((i) => {
+        const hr = new Date(i.timestamp).getHours();
+        if (hr < 12) morningMl += i.volume_ml;
+        else if (hr < 18) afternoonMl += i.volume_ml;
+        else eveningMl += i.volume_ml;
+      });
+
+      if (totalMl > 0) {
+        const top = Math.max(morningMl, afternoonMl, eveningMl);
+        patternLabel =
+          top === morningMl ? "Morning-heavy" : top === afternoonMl ? "Afternoon-heavy" : "Evening-heavy";
+
+        // Long gaps check (largest gap between intakes)
+        let maxGapMin = 0;
+        for (let i = 1; i < ints.length; i++) {
+          const a = new Date(ints[i - 1].timestamp).getTime();
+          const b = new Date(ints[i].timestamp).getTime();
+          const gapMin = Math.round((b - a) / 60000);
+          if (gapMin > maxGapMin) maxGapMin = gapMin;
+        }
+
+        if (maxGapMin >= 180) {
+          tips.push({
+            title: "Consistency",
+            body: `You had a long gap (~${Math.round(maxGapMin / 60)}h). Smaller, more frequent sips keep you steadier.`,
+          });
+        }
+
+        if (last) {
+          const lh = last.getHours();
+          if (lh >= 19 && deficitOz >= 16) {
+            tips.push({
+              title: "Late-day catch-up",
+              body: "Avoid big chugs late. Spread the remaining intake so it doesn’t disrupt sleep.",
+            });
+          }
+        }
+
+        if (patternLabel === "Evening-heavy" && ints.length >= 2) {
+          tips.push({
+            title: "Timing",
+            body: "Most intake lands late. Try moving one bottle earlier (late morning/early afternoon).",
+          });
+        } else if (patternLabel === "Morning-heavy") {
+          tips.push({
+            title: "Timing",
+            body: "Good early start. Keep it steady through the afternoon to avoid late catch-up.",
+          });
+        }
+      } else {
+        if (isToday && mounted) {
+          const now = new Date();
+          if (now.getHours() >= 12) {
+            tips.push({
+              title: "Start Now",
+              body: "No drinks logged yet. Start with 12–16 oz, then settle into smaller sips.",
+            });
+          } else {
+            tips.push({
+              title: "Early Start",
+              body: "Getting your first 8–12 oz in the morning makes the day easier.",
+            });
+          }
+        }
+      }
+
+      // If viewing a past day with deficit
+      if (!isToday && deficitOz > 0) {
+        tips.push({
+          title: "Reflection",
+          body: `You finished ${deficitOz} oz below target. Tomorrow: start earlier and avoid long gaps.`,
+        });
+      }
+
+      // If we have a first log late
+      if (first && isToday && mounted) {
+        const fh = first.getHours();
+        if (fh >= 13 && targetOz >= 64) {
+          tips.push({
+            title: "Earlier Tomorrow",
+            body: "Your first log was in the afternoon. Try logging your first 8–12 oz earlier tomorrow.",
+          });
+        }
+      }
+    } catch {}
+
+    // Risk triggers (Idea 7) — keep simple + useful
+    const risk: RiskTip | null = (() => {
+      if (!isToday) return null;
+      if (!mounted) return null;
+
+      // Pull cached WHOOP for today (we store it in localStore).
+      const whoop = getWhoopMetrics(selectedDate);
+      const recovery = whoop?.recovery_score ?? null;
+
+      const now = new Date();
+      const hr = now.getHours();
+      const late = hr >= 17; // late afternoon onward
+
+      // If behind + trained + low recovery + late, surface a stronger callout.
+      const behind = deficitOz >= 16; // ~>= 16oz behind
+      const trained = Boolean(flags.workouts);
+      const lowRecovery = typeof recovery === "number" && recovery < 40;
+
+      if (behind && (trained || lowRecovery) && late) {
+        const parts: string[] = [];
+        if (trained) parts.push("workout");
+        if (lowRecovery) parts.push(`low recovery (${Math.round(recovery)}%)`);
+
+        return {
+          level: "elevated",
+          title: "Priority",
+          body: `You’re behind and have ${parts.join(" + ")}. Prioritize electrolytes and steady intake over the next few hours.`,
+        };
+      }
+
+      if (behind && late) {
+        return {
+          level: "normal",
+          title: "Heads Up",
+          body: "You’re behind for this time of day. Spread smaller sips to avoid a late-night catch-up.",
+        };
+      }
+
+      return null;
+    })();
+
+    // Status label (professional + minimal)
+    const status =
+      targetMl <= 0
+        ? { label: "Set up profile", tone: "muted" as const }
+        : deficitMl <= 0
+        ? { label: "On Target", tone: "good" as const }
+        : { label: "Behind", tone: "warn" as const };
+
+    return {
+      flags,
+      targetOz,
+      actualOz,
+      deficitOz,
+      status,
+      patternLabel,
+      tips: tips.slice(0, 3),
+      risk,
+    };
+  }, [state, selectedDate, isToday, mounted]);
+
   return (
     <div className="px-4 pb-4 pt-[calc(72px+env(safe-area-inset-top))]">
       {!isToday ? (
@@ -204,75 +410,110 @@ export default function Home() {
       <HydrationScoreCard score={state.score} />
       <HydrationProgressBar actualMl={state.actual} targetMl={state.target} />
 
-      <Card className="mb-4 border-blue-100 bg-blue-50 p-4 text-blue-900 shadow-sm dark:border-blue-900/40 dark:bg-blue-950 dark:text-blue-200">
-        <p className="text-sm font-semibold">Recommendations:</p>
-        {(() => {
-          const flags = state.flags || { workouts: false, creatine: false, env: false, whoop: false };
-          const deficitMl = Math.max(0, state.target - state.actual);
-          const deficitOz = Math.round(deficitMl / 29.5735);
-
-          let nowOz = 0,
-            perHour = 0;
-          if (mounted && isToday) {
-            const now = new Date();
-            const end = new Date(now);
-            end.setHours(21, 0, 0, 0);
-            const hoursLeft = Math.max(1, Math.ceil((end.getTime() - now.getTime()) / 3600000));
-            nowOz = Math.max(6, Math.min(20, Math.round(deficitOz * 0.5)));
-            perHour = Math.max(4, Math.round((deficitOz - nowOz) / hoursLeft));
-          }
-
-          return (
-            <div className="mt-1 text-sm">
-              <p className="mb-1 text-xs opacity-80">
-                Target: <strong>{Math.round(state.target / 29.5735)} oz</strong>
-                <span className="mx-1">•</span>
-                Actual: <strong>{Math.round(state.actual / 29.5735)} oz</strong>
-              </p>
-
-              {deficitMl > 0 ? (
-                isToday ? (
-                  <p>
-                    Drink {mounted ? nowOz : Math.max(6, Math.min(20, Math.round(deficitOz * 0.5)))} oz now,
-                    then{" "}
-                    {mounted ? perHour : Math.max(4, Math.round(deficitOz * 0.5 / Math.max(1, 4)))} oz each
-                    hour until ~9pm.
-                  </p>
-                ) : (
-                  <p>
-                    You finished <strong>{Math.round(deficitMl / 29.5735)} oz</strong> below your target for
-                    this day.
-                  </p>
-                )
-              ) : (
-                <p>Nice work — you hit your target for this day.</p>
-              )}
-
-              {isToday ? (
-                <p className="mt-1 text-xs opacity-80">
-                  Tip: small sips every ~20–30 min are easier than big chugs.
-                </p>
+      {/* ✅ Recommendations: cleaned layout (Idea 8) + habit coaching (Idea 4) + risk triggers (Idea 7) */}
+      <Card className="mb-4 p-4 shadow-sm">
+        {/* Header row */}
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Recommendations</p>
+            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+              Target <span className="font-medium">{rec.targetOz} oz</span> • Actual{" "}
+              <span className="font-medium">{rec.actualOz} oz</span>
+              {rec.patternLabel ? (
+                <>
+                  <span className="mx-1">•</span>
+                  <span className="font-medium">{rec.patternLabel}</span>
+                </>
               ) : null}
+            </p>
+          </div>
 
-              {mounted ? (
-                <div className="mt-2 rounded-lg border border-blue-200/60 bg-white/70 p-3 text-xs text-blue-900 dark:border-blue-900/40 dark:bg-blue-950/40 dark:text-blue-200">
-                  <p className="mb-1 font-semibold">Target includes:</p>
-                  <div className="space-y-1">
-                    <div>Base need from weight</div>
-                    {flags.workouts ? <div>Workouts adjustment</div> : null}
-                    {flags.creatine ? <div>Creatine</div> : null}
-                    {flags.whoop ? <div>Sleep/Recovery modifiers (WHOOP)</div> : null}
-                  </div>
-                </div>
-              ) : null}
+          <div
+            className={[
+              "shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold",
+              rec.status.tone === "good"
+                ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
+                : rec.status.tone === "warn"
+                ? "bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
+                : "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200",
+            ].join(" ")}
+          >
+            {rec.status.label}
+          </div>
+        </div>
+
+        {/* Primary message */}
+        <div className="mt-3 rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+          {state.target <= 0 ? (
+            <p className="text-sm text-zinc-700 dark:text-zinc-300">
+              Add your profile (weight) to generate a personalized daily target.
+            </p>
+          ) : rec.deficitOz <= 0 ? (
+            <p className="text-sm text-zinc-700 dark:text-zinc-300">
+              Nice work — you hit your target for this day.
+            </p>
+          ) : isToday ? (
+            <p className="text-sm text-zinc-700 dark:text-zinc-300">
+              You’re <span className="font-semibold">{rec.deficitOz} oz</span> behind target. Focus on steady
+              sips and avoid a late-day chug.
+            </p>
+          ) : (
+            <p className="text-sm text-zinc-700 dark:text-zinc-300">
+              You finished <span className="font-semibold">{rec.deficitOz} oz</span> below your target for
+              this day.
+            </p>
+          )}
+
+          {/* Risk callout */}
+          {rec.risk ? (
+            <div
+              className={[
+                "mt-3 rounded-xl border p-3 text-sm",
+                rec.risk.level === "elevated"
+                  ? "border-rose-200 bg-rose-50 text-rose-900 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-200"
+                  : "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200",
+              ].join(" ")}
+            >
+              <div className="font-semibold">{rec.risk.title}</div>
+              <div className="mt-1 text-xs opacity-90">{rec.risk.body}</div>
             </div>
-          );
-        })()}
+          ) : null}
+        </div>
 
-        {(state.flags || { creatine: false }).creatine ? (
-          <p className="mt-2 text-xs opacity-80">
-            Creatine increases your target slightly — aim to spread fluids through the day.
-          </p>
+        {/* Habit tips */}
+        {rec.tips.length ? (
+          <div className="mt-3 grid gap-2">
+            {rec.tips.map((t, idx) => (
+              <div
+                key={idx}
+                className="rounded-2xl border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900"
+              >
+                <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{t.title}</p>
+                <p className="mt-1 text-sm text-zinc-700 dark:text-zinc-300">{t.body}</p>
+              </div>
+            ))}
+          </div>
+        ) : null}
+
+        {/* Target drivers (kept, but cleaner) */}
+        {mounted ? (
+          <div className="mt-3 rounded-2xl border border-zinc-200 bg-white p-4 text-sm dark:border-zinc-800 dark:bg-zinc-900">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+              Target Drivers
+            </p>
+            <div className="grid gap-1.5 text-sm text-zinc-700 dark:text-zinc-300">
+              <div>Base need from weight</div>
+              {rec.flags.workouts ? <div>Workouts adjustment</div> : null}
+              {rec.flags.creatine ? <div>Creatine</div> : null}
+              {rec.flags.whoop ? <div>Sleep/Recovery modifiers (WHOOP)</div> : null}
+            </div>
+
+            {rec.flags.creatine ? (
+              <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
+                Creatine increases your target slightly — spread fluids through the day.
+              </p>
+            ) : null}
+          </div>
         ) : null}
       </Card>
 
@@ -287,17 +528,11 @@ export default function Home() {
           <ul className="divide-y divide-zinc-200 overflow-hidden rounded-2xl border border-zinc-200 bg-white dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-900">
             {state.intakes.map((i) => {
               const d = new Date(i.timestamp);
-              const nf = new Intl.DateTimeFormat("en-US", {
-                timeZone: "America/New_York",
-                hour: "numeric",
-                minute: "2-digit",
-                hour12: true,
-              });
-              const hhmm = nf.format(d).toLowerCase();
+              const hhmm = fmtTimeNY(d);
               return (
                 <li key={i.id} className="grid grid-cols-[72px,1fr,96px] items-center p-3 text-sm">
                   <div className="text-zinc-600 dark:text-zinc-300">{hhmm}</div>
-                  <div className="text-right font-medium">{Math.round(i.volume_ml / 29.5735)} oz</div>
+                  <div className="text-right font-medium">{toOz(i.volume_ml)} oz</div>
                   <div className="text-right text-zinc-600 capitalize dark:text-zinc-300">{i.type}</div>
                 </li>
               );
