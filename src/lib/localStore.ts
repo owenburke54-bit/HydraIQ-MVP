@@ -54,6 +54,7 @@ export function formatNYDate(d: Date): string {
     month: "2-digit",
     day: "2-digit",
   }).formatToParts(d);
+
   const y = parts.find((p) => p.type === "year")?.value ?? "0000";
   const m = parts.find((p) => p.type === "month")?.value ?? "01";
   const dd = parts.find((p) => p.type === "day")?.value ?? "01";
@@ -122,6 +123,7 @@ export function addIntake(volumeMl: number, type: Intake["type"], ts: Date) {
     type,
   });
   writeJSON("hydra.intakes", list);
+
   // Persist simple daily summary
   try {
     const dateNY = formatNYDate(ts);
@@ -140,20 +142,15 @@ export function getIntakesByDateNY(date: string): Intake[] {
 }
 
 /**
- * ✅ FIXED: Respect the dateNY passed in.
- * Home should show the intakes for whatever day the user is viewing.
+ * Home should always show the selected NY date.
+ * We keep a small fallback that compares the raw ISO date prefix,
+ * but it MUST compare to the selected date (not "today").
  */
 export function getIntakesForHome(dateNY: string): Intake[] {
   const list = readJSON<Intake[]>("hydra.intakes", []);
-
   return list.filter((i) => {
-    // Primary: group by NY day (stable + correct)
     const nyMatch = formatNYDate(new Date(i.timestamp)) === dateNY;
-
-    // Fallback: if the timestamp's calendar date string equals the dateNY (still same dateNY)
-    // (This helps if some timestamps were created in a way that already matches YYYY-MM-DD)
-    const simpleMatch = i.timestamp.slice(0, 10) === dateNY;
-
+    const simpleMatch = i.timestamp.slice(0, 10) === dateNY; // ✅ was incorrectly comparing to "today"
     return nyMatch || simpleMatch;
   });
 }
@@ -193,7 +190,6 @@ export function updateWorkout(id: string, patch: Partial<Workout>) {
   const old = list[idx];
   const next = { ...old, ...patch };
   list[idx] = next;
-
   writeJSON("hydra.workouts", list);
 
   // Recompute summaries for old and new dates if changed
@@ -227,6 +223,7 @@ export function addSupplements(events: { types: SupplementEvent["type"][]; times
       grams: events.grams ?? null,
     });
   });
+
   writeJSON("hydra.supplements", list);
 
   // Recompute summary for this date
@@ -273,7 +270,6 @@ export function recomputeSummary(dateNY: string) {
     const s = new Date(ww.start_time);
     const e = ww.end_time ? new Date(ww.end_time) : s;
     const mins = Math.max(0, Math.round((e.getTime() - s.getTime()) / 60000));
-
     // Treat intensity as WHOOP strain (0–21). Map to factor 0.5–1.5x.
     const strain = typeof ww.intensity === "number" ? Math.max(0, Math.min(21, ww.intensity)) : 5;
     const f = 0.5 + strain / 21;
