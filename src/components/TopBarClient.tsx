@@ -1,28 +1,84 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useSelectedISODate, clampISODate } from "@/lib/selectedDate";
 
 export default function TopBarClient() {
   const { todayISO, selectedDate, label, prev, next, nextDisabled, go } = useSelectedISODate();
 
-  // If you ever want to hide this on certain routes, re-add pathname checks.
   const showPicker = useMemo(() => true, []);
 
   function goAndNotify(nextISO: string) {
     go(nextISO);
-
-    // ✅ Tell other pages (Home/Insights/etc) the date changed (router.push does NOT trigger popstate).
     if (typeof window !== "undefined") {
       window.dispatchEvent(new Event("hydra:datechange"));
     }
   }
 
+  // ✅ Check deploy version and force a true refresh when it changes (keeps localStorage).
+  useEffect(() => {
+    let cancelled = false;
+
+    const KEY = "hydra:buildVersion";
+    const CHECK_MS = 2 * 60 * 1000; // 2 minutes
+
+    async function checkVersion() {
+      try {
+        const res = await fetch(`/version.json?ts=${Date.now()}`, {
+          cache: "no-store",
+          headers: { "cache-control": "no-store" },
+        });
+        if (!res.ok) return;
+
+        const data = await res.json();
+        const nextV = String(data?.version || "").trim();
+        if (!nextV) return;
+
+        const prevV = localStorage.getItem(KEY);
+
+        if (!prevV) {
+          localStorage.setItem(KEY, nextV);
+          return;
+        }
+
+        if (prevV !== nextV) {
+          localStorage.setItem(KEY, nextV);
+
+          // iOS is stubborn about reload caching — replace with a cache-busting URL
+          const url = new URL(window.location.href);
+          url.searchParams.set("__v", String(Date.now()));
+          window.location.replace(url.toString());
+        }
+      } catch {}
+    }
+
+    const t = window.setTimeout(() => {
+      if (!cancelled) checkVersion();
+    }, 350);
+
+    const id = window.setInterval(() => {
+      if (!cancelled) checkVersion();
+    }, CHECK_MS);
+
+    const onVisible = () => {
+      if (!document.hidden && !cancelled) checkVersion();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+    };
+  }, []);
+
   if (!showPicker) return null;
 
   return (
     <div className="flex items-center justify-between gap-2">
-      {/* Prev */}
       <button
         type="button"
         aria-label="Previous day"
@@ -32,12 +88,10 @@ export default function TopBarClient() {
         ←
       </button>
 
-      {/* Center pill */}
       <div className="h-9 flex-1 rounded-xl border border-zinc-200 bg-white px-3 text-sm shadow-sm flex items-center justify-center dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200">
         {label}
       </div>
 
-      {/* Next */}
       <button
         type="button"
         aria-label="Next day"
@@ -48,7 +102,6 @@ export default function TopBarClient() {
         →
       </button>
 
-      {/* Date picker */}
       <div className="ml-2 flex items-center gap-2">
         <input
           type="date"
