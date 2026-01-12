@@ -11,7 +11,6 @@ export default function RegisterSW() {
     const onControllerChange = () => {
       if (refreshing) return;
       refreshing = true;
-      // Reload in-place (NO query params)
       window.location.reload();
     };
 
@@ -20,25 +19,25 @@ export default function RegisterSW() {
     navigator.serviceWorker
       .register("/sw.js")
       .then((reg) => {
-        // If there’s already a waiting worker (rare but possible)
+        // If there's already a waiting worker, activate it now
         if (reg.waiting) {
           reg.waiting.postMessage({ type: "SKIP_WAITING" });
         }
 
+        // If a new worker is found, when it reaches "installed", activate it
         reg.addEventListener("updatefound", () => {
-          const nw = reg.installing;
-          if (!nw) return;
+          const sw = reg.installing;
+          if (!sw) return;
 
-          nw.addEventListener("statechange", () => {
-            // New SW installed and waiting -> activate it
-            if (nw.state === "installed" && navigator.serviceWorker.controller) {
-              reg.waiting?.postMessage({ type: "SKIP_WAITING" });
+          sw.addEventListener("statechange", () => {
+            if (sw.state === "installed" && navigator.serviceWorker.controller) {
+              sw.postMessage({ type: "SKIP_WAITING" });
             }
           });
         });
       })
       .catch(() => {
-        // ignore
+        // silent in prod
       });
 
     return () => {
