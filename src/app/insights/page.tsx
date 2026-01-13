@@ -88,11 +88,6 @@ function addDaysISO(iso: string, delta: number) {
   return d.toISOString().slice(0, 10);
 }
 
-function mean(nums: number[]) {
-  if (!nums.length) return null;
-  return nums.reduce((s, v) => s + v, 0) / nums.length;
-}
-
 function formatType(t?: string | null) {
   if (!t) return "Workout";
   const s = String(t);
@@ -331,7 +326,6 @@ function SevenDayScoreChart({ points }: { points: { day: string; value: number }
         })}
 
         {points.map((p, i) => {
-          // show all 7 labels
           const x = sx(i);
           const lab = p.day.slice(5); // MM-DD
           return (
@@ -351,13 +345,7 @@ function SevenDayScoreChart({ points }: { points: { day: string; value: number }
           const y = sy(p.value);
           return (
             <g key={p.day}>
-              <text
-                x={x}
-                y={y - 10}
-                textAnchor="middle"
-                fontSize="10"
-                fill="#64748b"
-              >
+              <text x={x} y={y - 10} textAnchor="middle" fontSize="10" fill="#64748b">
                 {Math.round(p.value)}
               </text>
               <circle cx={x} cy={y} r="5" fill="#2563eb" />
@@ -370,7 +358,7 @@ function SevenDayScoreChart({ points }: { points: { day: string; value: number }
   );
 }
 
-/** 14-day goal completion bars (ratio actual/target), different from score line */
+/** 14-day goal completion bars (ratio actual/target) */
 function GoalCompletionBars({ points }: { points: DayPoint[] }) {
   const w = 420;
   const h = 190;
@@ -387,7 +375,7 @@ function GoalCompletionBars({ points }: { points: DayPoint[] }) {
     return clamp(r, 0, 1.2);
   });
 
-  const maxY = 1.2; // allow slight over-target
+  const maxY = 1.2;
   const sx = (i: number) =>
     leftPad +
     (i / Math.max(1, points.length - 1)) * (w - leftPad - pad);
@@ -417,7 +405,6 @@ function GoalCompletionBars({ points }: { points: DayPoint[] }) {
           );
         })}
 
-        {/* target line at 1.0 */}
         <line x1={leftPad} y1={sy(1)} x2={w - pad} y2={sy(1)} stroke="#94a3b8" strokeDasharray="4 4" />
 
         {points.map((p, i) => {
@@ -428,8 +415,10 @@ function GoalCompletionBars({ points }: { points: DayPoint[] }) {
           const x0 = x - barW / 2;
           const dayLab = p.date.slice(5);
 
-          // sparse x labels
-          const showLabel = points.length <= 10 || i % Math.ceil(points.length / 6) === 0 || i === points.length - 1;
+          const showLabel =
+            points.length <= 10 ||
+            i % Math.ceil(points.length / 6) === 0 ||
+            i === points.length - 1;
 
           return (
             <g key={p.date}>
@@ -490,11 +479,11 @@ export default function InsightsPage() {
     recovery: number | null;
   } | null>(null);
 
-  // Server history snapshots
+  // Server history snapshots (kept for future cloud sync, but not required for Lag Effects)
   const [historyRows, setHistoryRows] = useState<HistoryRow[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
-  // Fetch WHOOP sleep/recovery for selected day
+  // Fetch WHOOP sleep/recovery for selected day (today tab logic)
   useEffect(() => {
     (async () => {
       try {
@@ -569,7 +558,7 @@ export default function InsightsPage() {
     setPoints14(out.reverse());
   }, []);
 
-  // Fetch history snapshots when opening History tab (cache after first load)
+  // Fetch server history snapshots when opening History tab (optional; may be empty)
   useEffect(() => {
     if (tab !== "history") return;
     if (historyRows.length) return;
@@ -588,6 +577,43 @@ export default function InsightsPage() {
       setHistoryLoading(false);
     })();
   }, [tab, historyRows.length]);
+
+  // 🔥 NEW: Backfill WHOOP cache for recent days when user opens History
+  // This fixes "Pairs: 0" when WHOOP metrics were never persisted locally for past dates.
+  useEffect(() => {
+    if (tab !== "history") return;
+
+    let cancelled = false;
+
+    (async () => {
+      // 60 days is plenty for lag effects without hammering the API.
+      const dates = lastNDatesNY(60);
+
+      // Only fetch missing days to avoid wasting requests.
+      for (const d of dates) {
+        if (cancelled) return;
+
+        const cached = getWhoopMetrics(d);
+        if (cached && (cached.sleep_hours != null || cached.recovery_score != null)) continue;
+
+        try {
+          const res = await fetch(`/api/whoop/metrics?date=${d}`, { credentials: "include" });
+          if (!res.ok) continue;
+          const j = await res.json();
+          setWhoopMetrics(d, {
+            sleep_hours: j.sleep_hours ?? null,
+            recovery_score: j.recovery_score ?? null,
+          });
+        } catch {
+          // ignore per-day failures
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [tab]);
 
   // Breakdown of selected day's target
   const dayBreakdown = useMemo(() => {
@@ -703,11 +729,115 @@ export default function InsightsPage() {
   }, [selectedTotals, whoopSelected]);
 
   // ---- HISTORY (Lag Effects + 7D trend + 14D summary) ----
+
+  // Build a local history series (hydration + WHOOP cache) so Lag Effects works even without /api/history.
+  const localHistorySorted = useMemo(() => {
+    const prof = getProfile();
+    const weight = prof?.weight_kg ?? 0;
+    if (weight <= 0) return [] as HistoryRow[];
+
+    const dates = lastNDatesNY(180).reverse();
+
+    const rows: HistoryRow[] = dates.map((day) => {
+      const intakes = getIntakesByDateNY(day);
+      const workouts = getWorkoutsByDateNY(day);
+      const supplements = getSupplementsByDateNY(day);
+
+      const actualMl = intakes.reduce((s, i) => s + i.volume_ml, 0);
+
+      const baseMl = Math.round(weight * BASE_ML_PER_KG);
+
+      const workoutMl = workouts.reduce((sum, w) => {
+        const start = new Date(w.start_time);
+        const end = w.end_time ? new Date(w.end_time) : start;
+        const mins = Math.max(0, Math.round((end.getTime() - start.getTime()) / 60000));
+        const strain =
+          typeof w.intensity === "number" ? Math.max(0, Math.min(21, w.intensity)) : 5;
+        const intensityFactor = 0.5 + strain / 21;
+        return sum + mins * WORKOUT_ML_PER_MIN * intensityFactor;
+      }, 0);
+
+      const creatineMl = supplements
+        .filter((s) => s.type === "creatine" && s.grams && s.grams > 0)
+        .reduce((sum, s) => sum + (s.grams || 0) * 70, 0);
+
+      // WHOOP cache for THAT day (used for that day's target modifier)
+      const whoop = getWhoopMetrics(day);
+      const sleepHours = whoop?.sleep_hours ?? null;
+      const recoveryPct = whoop?.recovery_score ?? null;
+
+      const baseTargetMl = baseMl + workoutMl + creatineMl;
+
+      let modPct = 0;
+      let sleepMl = 0;
+      let recoveryMl = 0;
+
+      if (sleepHours != null) {
+        let sAdj = 0;
+        if (sleepHours < 7.5) sAdj = Math.max(0, 7.5 - sleepHours) * 0.03;
+        else if (sleepHours > 8.5) sAdj = -Math.max(0, sleepHours - 8.5) * 0.02;
+        modPct += sAdj;
+        sleepMl = baseTargetMl * sAdj;
+      }
+
+      if (recoveryPct != null) {
+        let rAdj = 0;
+        if (recoveryPct < 33) rAdj = 0.05;
+        else if (recoveryPct < 66) rAdj = 0.02;
+        modPct += rAdj;
+        recoveryMl = baseTargetMl * rAdj;
+      }
+
+      const targetMl = Math.round(baseTargetMl + baseTargetMl * modPct);
+
+      const score =
+        targetMl > 0
+          ? calculateHydrationScore({
+              targetMl,
+              actualMl,
+              intakes: intakes.map((i) => ({
+                timestamp: new Date(i.timestamp),
+                volumeMl: i.volume_ml,
+              })),
+              workouts: [],
+            })
+          : 0;
+
+      const totalOz = actualMl / 29.5735;
+
+      return {
+        day,
+        hydration_score: Number.isFinite(score) ? Number(score) : 0,
+        total_oz: Number.isFinite(totalOz) ? Number(totalOz) : 0,
+        base_need_oz: baseMl / 29.5735,
+        workouts_oz: workoutMl / 29.5735,
+        creatine_oz: creatineMl / 29.5735,
+        sleep_oz: sleepMl / 29.5735,
+        recovery_oz: recoveryMl / 29.5735,
+        sleep_hours: sleepHours,
+        recovery_pct: recoveryPct,
+      };
+    });
+
+    // only keep days with some signal (intake logged OR whoop data OR workouts)
+    const trimmed = rows.filter((r) => {
+      const hasHydration = Number(r.total_oz) > 0 || Number(r.hydration_score) > 0;
+      const hasWhoop = r.sleep_hours != null || r.recovery_pct != null;
+      const hasWorkouts = (r.workouts_oz ?? 0) > 0;
+      return hasHydration || hasWhoop || hasWorkouts;
+    });
+
+    trimmed.sort((a, b) => a.day.localeCompare(b.day));
+    return trimmed;
+  }, [tab]); // rebuild when switching tabs (and after whoop backfill)
+
   const historySorted = useMemo(() => {
-    const rows = [...historyRows].filter((r) => isISODate(r.day));
-    rows.sort((a, b) => a.day.localeCompare(b.day));
-    return rows;
-  }, [historyRows]);
+    // Prefer server history if it exists; otherwise use local computed history
+    const server = [...historyRows].filter((r) => isISODate(r.day));
+    server.sort((a, b) => a.day.localeCompare(b.day));
+    if (server.length >= 7) return server;
+    return localHistorySorted;
+  }, [historyRows, localHistorySorted]);
 
   const lagPairs = useMemo(() => {
     const map = new Map<string, HistoryRow>();
@@ -794,7 +924,7 @@ export default function InsightsPage() {
     return fallback;
   }, [historySorted, points14]);
 
-  // 14-day summary KPIs from local points (always available if you logged)
+  // 14-day summary KPIs from local points
   const last14Stats = useMemo(() => {
     const pts = points14.slice(-14);
     if (!pts.length) return { avg: null as number | null, best: null as DayPoint | null, streak: 0 };
@@ -802,7 +932,6 @@ export default function InsightsPage() {
     const avg = pts.reduce((s, p) => s + (Number.isFinite(p.score) ? p.score : 0), 0) / pts.length;
     const best = pts.reduce((b, p) => (p.score > b.score ? p : b), pts[0]);
 
-    // streak of score >= 75 (from most recent backwards)
     const THRESH = 75;
     let streak = 0;
     for (let i = pts.length - 1; i >= 0; i--) {
@@ -812,6 +941,8 @@ export default function InsightsPage() {
 
     return { avg, best, streak, threshold: THRESH, pts };
   }, [points14]);
+
+  const noHistoryAtAll = historySorted.length === 0 && !historyLoading;
 
   return (
     <div className="px-4 pb-4 pt-[calc(72px+env(safe-area-inset-top))]">
@@ -903,7 +1034,7 @@ export default function InsightsPage() {
         </>
       ) : (
         <>
-          {/* 7-Day Trend (Clean, professional) */}
+          {/* 7-Day Trend */}
           <section className="mt-4">
             <Card className="p-4">
               <div className="flex items-start justify-between gap-3">
@@ -915,21 +1046,19 @@ export default function InsightsPage() {
                     Each point is your daily score (built from logged intake/workouts).
                   </p>
                 </div>
-                {historyLoading ? (
-                  <span className="text-xs text-zinc-500">Loading…</span>
-                ) : null}
+                {historyLoading ? <span className="text-xs text-zinc-500">Loading…</span> : null}
               </div>
 
               <SevenDayScoreChart points={last7Series} />
             </Card>
           </section>
 
-          {/* Lag Effects (Bigger, spaced, minimal text, KPI correlation) */}
+          {/* Lag Effects */}
           <section className="mt-4">
             <Card className="p-4">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Lag Effects</p>
-                {historyRows.length === 0 && !historyLoading ? (
+                {noHistoryAtAll ? (
                   <span className="text-xs text-zinc-500">No saved history yet.</span>
                 ) : null}
               </div>
@@ -1006,7 +1135,7 @@ export default function InsightsPage() {
             </Card>
           </section>
 
-          {/* 14-Day Summary: keep 3 cards, change chart to a different data/visual */}
+          {/* 14-Day Summary */}
           <section className="mt-4">
             <Card className="p-4">
               <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
@@ -1045,10 +1174,8 @@ export default function InsightsPage() {
                 </div>
               </div>
 
-              {/* NEW visual: goal completion bars (not another score line) */}
               <GoalCompletionBars points={(last14Stats as any).pts ?? points14} />
 
-              {/* Optional secondary: local heatmap (kept, but now supports the bars rather than being the only visual) */}
               <div className="mt-4">
                 <div className="flex items-center justify-between">
                   <p className="text-xs font-medium text-zinc-700 dark:text-zinc-300">

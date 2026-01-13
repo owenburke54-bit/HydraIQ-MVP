@@ -3,7 +3,10 @@
 // Keys
 // - hydra.profile
 // - hydra.intakes
-// - hydra.workouts (reserved, not used yet)
+// - hydra.workouts
+// - hydra.summaries
+// - hydra.supplements
+// - hydra.whoop
 //
 // Note: These helpers must be called from client components only.
 
@@ -94,6 +97,16 @@ function writeJSON<T>(key: string, value: T) {
   } catch {}
 }
 
+function safeId(): string {
+  // crypto.randomUUID is not available in some older Safari contexts
+  try {
+    // @ts-expect-error - crypto may not exist in some environments
+    return crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  } catch {
+    return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  }
+}
+
 export function getProfile(): Profile | null {
   return readJSON<Profile | null>("hydra.profile", null);
 }
@@ -104,7 +117,11 @@ export function saveProfile(p: Profile) {
 
 export function getSettings(): Settings {
   try {
-    return readJSON<Settings>("hydra.settings", { timezone: "est", units: "oz", environment: "normal" });
+    return readJSON<Settings>("hydra.settings", {
+      timezone: "est",
+      units: "oz",
+      environment: "normal",
+    });
   } catch {
     return { timezone: "est", units: "oz", environment: "normal" };
   }
@@ -117,7 +134,7 @@ export function setSettings(next: Settings) {
 export function addIntake(volumeMl: number, type: Intake["type"], ts: Date) {
   const list = readJSON<Intake[]>("hydra.intakes", []);
   list.push({
-    id: crypto?.randomUUID?.() ?? String(Date.now()),
+    id: safeId(),
     timestamp: ts.toISOString(),
     volume_ml: volumeMl,
     type,
@@ -150,12 +167,18 @@ export function getIntakesForHome(dateNY: string): Intake[] {
   const list = readJSON<Intake[]>("hydra.intakes", []);
   return list.filter((i) => {
     const nyMatch = formatNYDate(new Date(i.timestamp)) === dateNY;
-    const simpleMatch = i.timestamp.slice(0, 10) === dateNY; // ✅ was incorrectly comparing to "today"
+    const simpleMatch = i.timestamp.slice(0, 10) === dateNY; // ✅ compare to selected date
     return nyMatch || simpleMatch;
   });
 }
 
-export function addWorkout(data: { start: Date; end?: Date; durationMin?: number; intensity?: number; type?: string }) {
+export function addWorkout(data: {
+  start: Date;
+  end?: Date;
+  durationMin?: number;
+  intensity?: number;
+  type?: string;
+}) {
   const list = readJSON<Workout[]>("hydra.workouts", []);
   const durationMin =
     typeof data.durationMin === "number"
@@ -165,7 +188,7 @@ export function addWorkout(data: { start: Date; end?: Date; durationMin?: number
       : null;
 
   list.push({
-    id: crypto?.randomUUID?.() ?? String(Date.now()),
+    id: safeId(),
     start_time: data.start.toISOString(),
     end_time: data.end ? data.end.toISOString() : null,
     duration_min: durationMin,
@@ -213,11 +236,15 @@ export function deleteWorkout(id: string) {
   } catch {}
 }
 
-export function addSupplements(events: { types: SupplementEvent["type"][]; timestamp: Date; grams?: number | null }) {
+export function addSupplements(events: {
+  types: SupplementEvent["type"][];
+  timestamp: Date;
+  grams?: number | null;
+}) {
   const list = readJSON<SupplementEvent[]>("hydra.supplements", []);
   events.types.forEach((t) => {
     list.push({
-      id: crypto?.randomUUID?.() ?? String(Date.now()),
+      id: safeId(),
       timestamp: events.timestamp.toISOString(),
       type: t,
       grams: events.grams ?? null,
@@ -253,6 +280,8 @@ export function clearAllLocalData() {
   window.localStorage.removeItem("hydra.workouts");
   window.localStorage.removeItem("hydra.summaries");
   window.localStorage.removeItem("hydra.supplements");
+  window.localStorage.removeItem("hydra.whoop");
+  window.localStorage.removeItem("hydra.settings");
 }
 
 // --- Daily summary helpers (for multi-day calculations) ---
@@ -301,17 +330,32 @@ export function getEnvironmentAdjustmentMl(): number {
 }
 
 // WHOOP metrics cache (per NY date)
-type WhoopMetrics = { sleep_hours: number | null; recovery_score: number | null; fetched_at: string };
+export type WhoopMetrics = {
+  sleep_hours: number | null;
+  recovery_score: number | null;
+  fetched_at: string;
+};
+
+type WhoopMap = Record<string, WhoopMetrics>;
 
 export function getWhoopMetrics(dateNY: string): WhoopMetrics | null {
-  return readJSON<Record<string, WhoopMetrics>>("hydra.whoop", {})[dateNY] ?? null;
+  return readJSON<WhoopMap>("hydra.whoop", {})[dateNY] ?? null;
 }
 
-export function setWhoopMetrics(dateNY: string, m: { sleep_hours: number | null; recovery_score: number | null }) {
-  const map = readJSON<Record<string, WhoopMetrics>>("hydra.whoop", {});
+/**
+ * Persist WHOOP metrics for a given NY date.
+ * Also normalizes values to avoid NaN/Infinity breaking correlation logic.
+ */
+export function setWhoopMetrics(
+  dateNY: string,
+  m: { sleep_hours: number | null; recovery_score: number | null }
+) {
+  const norm = (v: number | null) => (typeof v === "number" && Number.isFinite(v) ? v : null);
+
+  const map = readJSON<WhoopMap>("hydra.whoop", {});
   map[dateNY] = {
-    sleep_hours: m.sleep_hours,
-    recovery_score: m.recovery_score,
+    sleep_hours: norm(m.sleep_hours),
+    recovery_score: norm(m.recovery_score),
     fetched_at: new Date().toISOString(),
   };
   writeJSON("hydra.whoop", map);

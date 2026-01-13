@@ -9,6 +9,8 @@ import {
   formatNYDate,
   updateWorkout,
   deleteWorkout,
+  // ✅ NEW: persist WHOOP day metrics so Lag Effects has data
+  setWhoopMetrics,
 } from "../../lib/localStore";
 import { readSelectedDateFromLocation, isISODate } from "@/lib/selectedDate";
 
@@ -47,6 +49,12 @@ function coerceDateTimeToSelectedDate(value: string, selectedDate: string) {
   if (datePart === selectedDate) return value;
   return `${selectedDate}${value.slice(10)}`;
 }
+
+type WhoopSyncMetrics = {
+  sleepHours?: number | null;
+  recovery?: number | null;
+  strain?: number | null;
+};
 
 export default function WorkoutsPage() {
   const todayISO = useMemo(() => formatNYDate(new Date()), []);
@@ -239,7 +247,22 @@ export default function WorkoutsPage() {
                 const res = await fetch(`/api/whoop/sync?date=${selectedDate}`, {
                   credentials: "include",
                 });
+
                 const json = await res.json();
+
+                // ✅ NEW: persist WHOOP day metrics from sync response (so Lag Effects has data)
+                try {
+                  const m: WhoopSyncMetrics | undefined = json?.metrics;
+                  if (m && (m.sleepHours != null || m.recovery != null)) {
+                    setWhoopMetrics(selectedDate, {
+                      sleep_hours: m.sleepHours ?? null,
+                      recovery_score: m.recovery ?? null,
+                    });
+                  }
+                } catch {
+                  // ignore metric persistence failures
+                }
+
                 if (res.ok && Array.isArray(json.activities)) {
                   let count = 0;
                   for (const a of json.activities) {
@@ -263,7 +286,15 @@ export default function WorkoutsPage() {
                       count++;
                     } catch {}
                   }
-                  setMessage(`Imported ${count} WHOOP activities`);
+
+                  // Improve message to show metrics too (optional, but helpful)
+                  const m: WhoopSyncMetrics | undefined = json?.metrics;
+                  const parts: string[] = [];
+                  if (m?.sleepHours != null) parts.push(`Sleep ${Number(m.sleepHours).toFixed(1)}h`);
+                  if (m?.recovery != null) parts.push(`Recovery ${Math.round(Number(m.recovery))}%`);
+                  const suffix = parts.length ? ` • ${parts.join(" • ")}` : "";
+                  setMessage(`Imported ${count} WHOOP activities${suffix}`);
+
                   bump();
                 } else {
                   setError(json?.error ?? "WHOOP not connected");
