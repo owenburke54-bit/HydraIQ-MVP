@@ -97,13 +97,22 @@ function writeJSON<T>(key: string, value: T) {
   } catch {}
 }
 
+function fallbackId(): string {
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
 function safeId(): string {
-  // crypto.randomUUID is not available in some older Safari contexts
+  // Works in modern browsers; safe fallback for older Safari / restricted contexts.
   try {
-    // @ts-expect-error - crypto may not exist in some environments
-    return crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const c: Crypto | undefined =
+      typeof globalThis !== "undefined" && "crypto" in globalThis
+        ? (globalThis.crypto as Crypto)
+        : undefined;
+
+    const uuid = c?.randomUUID?.();
+    return uuid || fallbackId();
   } catch {
-    return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    return fallbackId();
   }
 }
 
