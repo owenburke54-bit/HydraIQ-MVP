@@ -536,20 +536,43 @@ export default function InsightsPage() {
           return sum + mins * WORKOUT_ML_PER_MIN * intensityFactor;
         }, 0);
 
-        target = Math.round(weight * 35 + workoutAdj);
+        // Creatine adjustment (70 ml per gram)
+        const supps = getSupplementsByDateNY(date);
+        const creatineMl = supps
+          .filter((s) => s.type === "creatine" && s.grams && s.grams > 0)
+          .reduce((sum, s) => sum + (s.grams || 0) * 70, 0);
+
+        // WHOOP modifiers
+        const baseTarget = weight * BASE_ML_PER_KG + workoutAdj + creatineMl;
+        const m = getWhoopMetrics(date);
+        let modPct = 0;
+        if (typeof m?.sleep_hours === "number") {
+          const h = m.sleep_hours;
+          if (h < 7.5) modPct += Math.max(0, 7.5 - h) * 0.03;
+          else if (h > 8.5) modPct -= Math.max(0, h - 8.5) * 0.02;
+        }
+        if (typeof m?.recovery_score === "number") {
+          const r = m.recovery_score;
+          if (r < 33) modPct += 0.05;
+          else if (r < 66) modPct += 0.02;
+        }
+        target = Math.round(baseTarget * (1 + modPct));
       }
 
       const score =
         target > 0
-          ? calculateHydrationScore({
-              targetMl: target,
-              actualMl: actual,
-              intakes: intakes.map((i) => ({
-                timestamp: new Date(i.timestamp),
-                volumeMl: i.volume_ml,
-              })),
-              workouts: [],
-            })
+          ? calculateHydrationScore(
+              {
+                targetMl: target,
+                actualMl: actual,
+                intakes: intakes.map((i) => ({
+                  timestamp: new Date(i.timestamp),
+                  volumeMl: i.volume_ml,
+                })),
+                workouts: [],
+              },
+              "final"
+            )
           : 0;
 
       return { date, actual, target, score };

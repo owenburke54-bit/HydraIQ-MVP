@@ -88,15 +88,18 @@ export default function Home() {
       setState((prev) => {
         const score =
           prev.target > 0
-            ? calculateHydrationScore({
-                targetMl: prev.target,
-                actualMl: actual,
-                intakes: intakes.map((i) => ({
-                  timestamp: new Date(i.timestamp),
-                  volumeMl: i.volume_ml,
-                })),
-                workouts: [],
-              })
+            ? calculateHydrationScore(
+                {
+                  targetMl: prev.target,
+                  actualMl: actual,
+                  intakes: intakes.map((i) => ({
+                    timestamp: new Date(i.timestamp),
+                    volumeMl: i.volume_ml,
+                  })),
+                  workouts: [],
+                },
+                isToday ? "live" : "final"
+              )
             : 0;
 
         return { ...prev, intakes, actual, score };
@@ -194,15 +197,18 @@ export default function Home() {
 
       const score =
         target > 0
-          ? calculateHydrationScore({
-              targetMl: target,
-              actualMl: actual,
-              intakes: intakes.map((i) => ({
-                timestamp: new Date(i.timestamp),
-                volumeMl: i.volume_ml,
-              })),
-              workouts: [],
-            })
+          ? calculateHydrationScore(
+              {
+                targetMl: target,
+                actualMl: actual,
+                intakes: intakes.map((i) => ({
+                  timestamp: new Date(i.timestamp),
+                  volumeMl: i.volume_ml,
+                })),
+                workouts: [],
+              },
+              isToday ? "live" : "final"
+            )
           : 0;
 
       setState({

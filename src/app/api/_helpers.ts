@@ -1,4 +1,4 @@
-﻿import { cookies } from "next/headers";
+import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
 import { calculateHydrationScore, calculateHydrationTarget } from "../../lib/hydration";
@@ -107,18 +107,23 @@ export async function recalcDay(userId: string, date: string) {
 		.filter("start_time", "lt", `${date}T23:59:59.999Z`);
 
 	const actualMl = (intakes ?? []).reduce((sum, i) => sum + (i.volume_ml as number), 0);
-	const score = calculateHydrationScore({
-		targetMl: day.target_ml,
-		actualMl,
-		intakes: (intakes ?? []).map((i) => ({
-			timestamp: new Date(i.timestamp as string),
-			volumeMl: i.volume_ml as number,
-		})),
-		workouts: (workouts ?? []).map((w) => ({
-			start: new Date(w.start_time as string),
-			end: w.end_time ? new Date(w.end_time as string) : new Date(new Date(w.start_time as string).getTime() + ((w.duration_min ?? 0) * 60000)),
-		})),
-	});
+	const score = calculateHydrationScore(
+		{
+			targetMl: day.target_ml,
+			actualMl,
+			intakes: (intakes ?? []).map((i) => ({
+				timestamp: new Date(i.timestamp as string),
+				volumeMl: i.volume_ml as number,
+			})),
+			workouts: (workouts ?? []).map((w) => ({
+				start: new Date(w.start_time as string),
+				end: w.end_time
+					? new Date(w.end_time as string)
+					: new Date(new Date(w.start_time as string).getTime() + ( (w.duration_min ?? 0) * 60000)),
+			})),
+		},
+		"final"
+	);
 
 	await supabase
 		.from("hydration_days")
