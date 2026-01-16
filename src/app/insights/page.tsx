@@ -710,19 +710,22 @@ export default function InsightsPage() {
 
     const score =
       target > 0
-        ? calculateHydrationScore({
-            targetMl: target,
-            actualMl: actual,
-            intakes: intakes.map((i) => ({
-              timestamp: new Date(i.timestamp),
-              volumeMl: i.volume_ml,
-            })),
-            workouts: [],
-          })
+        ? calculateHydrationScore(
+            {
+              targetMl: target,
+              actualMl: actual,
+              intakes: intakes.map((i) => ({
+                timestamp: new Date(i.timestamp),
+                volumeMl: i.volume_ml,
+              })),
+              workouts: [],
+            },
+            isToday ? "live" : "final"
+          )
         : 0;
 
     return { actual, target, score };
-  }, [selectedDate, dayBreakdown]);
+  }, [selectedDate, dayBreakdown, isToday]);
 
   // Quick insight cards (Selected day)
   const quick = useMemo(() => {
