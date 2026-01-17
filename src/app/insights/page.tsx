@@ -935,24 +935,37 @@ export default function InsightsPage() {
 
   // 7-day score series from saved history (preferred); fallback to local 14-day
   const last7Series = useMemo(() => {
-    const fromHistory = historySorted
-      .slice(Math.max(0, historySorted.length - 7))
-      .map((r) => ({ day: r.day, value: Number(r.hydration_score) }))
-      .filter((p) => Number.isFinite(p.value));
+    let series =
+      historySorted.length >= 3
+        ? historySorted
+            .slice(Math.max(0, historySorted.length - 7))
+            .map((r) => ({ day: r.day, value: Number(r.hydration_score) }))
+            .filter((p) => Number.isFinite(p.value))
+        : points14
+            .slice(Math.max(0, points14.length - 7))
+            .map((p) => ({ day: p.date, value: Number(p.score) }))
+            .filter((p) => Number.isFinite(p.value));
 
-    if (fromHistory.length >= 3) return fromHistory;
-
-    const fallback = points14
-      .slice(Math.max(0, points14.length - 7))
-      .map((p) => ({ day: p.date, value: Number(p.score) }))
-      .filter((p) => Number.isFinite(p.value));
-
-    return fallback;
-  }, [historySorted, points14]);
+    // Ensure today's point (if present) matches the live score shown on Home/Today
+    const idx = series.findIndex((p) => p.day === today);
+    if (idx >= 0) {
+      series = [...series];
+      series[idx] = { ...series[idx], value: Number(selectedTotals.score) };
+    }
+    return series;
+  }, [historySorted, points14, today, selectedTotals.score]);
 
   // 14-day summary KPIs from local points
+  const points14Display = useMemo(() => {
+    // Replace today's score with live score when displaying charts/KPIs
+    const arr = points14.map((p) =>
+      p.date === today ? { ...p, score: Number(selectedTotals.score) } : p
+    );
+    return arr;
+  }, [points14, today, selectedTotals.score]);
+
   const last14Stats = useMemo(() => {
-    const pts = points14.slice(-14);
+    const pts = points14Display.slice(-14);
     if (!pts.length) return { avg: null as number | null, best: null as DayPoint | null, streak: 0 };
 
     const avg = pts.reduce((s, p) => s + (Number.isFinite(p.score) ? p.score : 0), 0) / pts.length;
@@ -966,7 +979,7 @@ export default function InsightsPage() {
     }
 
     return { avg, best, streak, threshold: THRESH, pts };
-  }, [points14]);
+  }, [points14Display]);
 
   const noHistoryAtAll = historySorted.length === 0 && !historyLoading;
 
@@ -1200,7 +1213,7 @@ export default function InsightsPage() {
                 </div>
               </div>
 
-              <GoalCompletionBars points={(last14Stats as any).pts ?? points14} />
+              <GoalCompletionBars points={(last14Stats as any).pts ?? points14Display} />
 
               <div className="mt-4">
                 <div className="flex items-center justify-between">
@@ -1209,7 +1222,7 @@ export default function InsightsPage() {
                   </p>
                 </div>
                 <div className="mt-2">
-                  <CalendarHeatmap cells={points14.map((p) => ({ date: p.date, value: p.score }))} />
+                  <CalendarHeatmap cells={points14Display.map((p) => ({ date: p.date, value: p.score }))} />
                 </div>
               </div>
             </Card>
