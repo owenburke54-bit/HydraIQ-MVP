@@ -478,10 +478,17 @@ export default function InsightsPage() {
           });
         }
 
-        const res = await fetch(`/api/whoop/metrics?date=${selectedDate}`, {
-          credentials: "include",
-        });
-        if (res.ok) {
+        const TTL_MS = 10 * 60 * 1000;
+        const fresh =
+          cached &&
+          cached.fetched_at &&
+          Date.now() - new Date(cached.fetched_at).getTime() < TTL_MS;
+        const res = fresh
+          ? null
+          : await fetch(`/api/whoop/metrics?date=${selectedDate}`, {
+              credentials: "include",
+            });
+        if (res && res.ok) {
           const j = await res.json();
           setWhoopMetrics(selectedDate, {
             sleep_hours: j.sleep_hours ?? null,

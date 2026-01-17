@@ -62,9 +62,12 @@ export default function Home() {
     setMounted(true);
   }, []);
 
-  // Recalculate score periodically for the *selected* day.
+  // Recalculate score periodically for the *selected* day, but pause when hidden and skip when not Today.
   useEffect(() => {
+    let id: number | null = null;
     const tick = () => {
+      // Skip background ticking for non-today dates
+      if (!isToday) return;
       const intakes = getIntakesByDateNY(selectedDate);
       const actual = intakes.reduce((s, i) => s + i.volume_ml, 0);
 
@@ -81,7 +84,7 @@ export default function Home() {
                   })),
                   workouts: [],
                 },
-                isToday ? "live" : "final"
+                "live"
               )
             : 0;
 
@@ -89,10 +92,27 @@ export default function Home() {
       });
     };
 
-    tick();
-    const id = setInterval(tick, 60 * 1000);
-    return () => clearInterval(id);
-  }, [selectedDate]);
+    const start = () => {
+      if (!isToday || document.hidden) return;
+      tick();
+      id = window.setInterval(tick, 60 * 1000);
+    };
+    const stop = () => {
+      if (id != null) window.clearInterval(id);
+      id = null;
+    };
+    const onVis = () => {
+      stop();
+      if (!document.hidden) start();
+    };
+
+    start();
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      stop();
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, [selectedDate, isToday]);
 
   // Compute target + flags for selected day
   useEffect(() => {
@@ -165,8 +185,16 @@ export default function Home() {
 
         // Only call server for WHOOP on Today
         if (isToday) {
-          const res = await fetch(`/api/whoop/metrics?date=${date}`, { credentials: "include" });
-          if (res.ok) {
+          // Throttle WHOOP network fetch to once per 10 minutes
+          const TTL_MS = 10 * 60 * 1000;
+          const fresh =
+            cached &&
+            cached.fetched_at &&
+            Date.now() - new Date(cached.fetched_at).getTime() < TTL_MS;
+          const res = fresh
+            ? null
+            : await fetch(`/api/whoop/metrics?date=${date}`, { credentials: "include" });
+          if (res && res.ok) {
             const j = await res.json();
             setWhoopMetrics(date, {
               sleep_hours: j.sleep_hours ?? null,
