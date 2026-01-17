@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import Button from "../../components/ui/Button";
@@ -264,14 +264,32 @@ export default function WorkoutsPage() {
                 }
 
                 if (res.ok && Array.isArray(json.activities)) {
-                  let count = 0;
+                  // Deduplicate: only add activities that don't already exist for this day
+                  const existing = getWorkoutsByDateNY(selectedDate);
+                  const keyOf = (t: string, iso: string) => {
+                    const k = new Date(iso);
+                    // normalize to minute to avoid ms jitter
+                    k.setSeconds(0, 0);
+                    return `${t}|${k.toISOString()}`;
+                  };
+                  const existingKeys = new Set(
+                    existing.map((w) => keyOf(String(w.type || ""), String(w.start_time)))
+                  );
+
+                  let added = 0;
+                  let skipped = 0;
                   for (const a of json.activities) {
                     try {
                       const start = a.start ?? a.start_time ?? a.created_at;
+                      if (!start) { skipped++; continue; }
                       const end = a.end ?? a.end_time ?? start;
-                      const type = a?.sport_name
-                        ? `WHOOP • ${toTitleCase(String(a.sport_name))}`
-                        : "WHOOP";
+                      const type =
+                        a?.sport_name ? `WHOOP • ${toTitleCase(String(a.sport_name))}` : "WHOOP";
+                      const key = keyOf(String(type), String(start));
+                      if (existingKeys.has(key)) {
+                        skipped++;
+                        continue;
+                      }
                       const strain =
                         typeof a?.score?.strain === "number" ? Number(a.score.strain) : null;
                       const intensity =
@@ -283,8 +301,11 @@ export default function WorkoutsPage() {
                         end: new Date(end),
                         intensity: intensity ?? undefined,
                       });
-                      count++;
-                    } catch {}
+                      existingKeys.add(key);
+                      added++;
+                    } catch {
+                      skipped++;
+                    }
                   }
 
                   // Improve message to show metrics too (optional, but helpful)
@@ -293,7 +314,7 @@ export default function WorkoutsPage() {
                   if (m?.sleepHours != null) parts.push(`Sleep ${Number(m.sleepHours).toFixed(1)}h`);
                   if (m?.recovery != null) parts.push(`Recovery ${Math.round(Number(m.recovery))}%`);
                   const suffix = parts.length ? ` • ${parts.join(" • ")}` : "";
-                  setMessage(`Imported ${count} WHOOP activities${suffix}`);
+                  setMessage(`Imported ${added} WHOOP activities (skipped ${skipped})${suffix}`);
 
                   bump();
                 } else {
