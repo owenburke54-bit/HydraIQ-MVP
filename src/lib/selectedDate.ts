@@ -55,14 +55,19 @@ export function useSelectedISODate() {
   const todayISO = useMemo(() => isoDate(new Date()), []);
   const [selectedDate, setSelectedDate] = useState<string>(todayISO);
 
-  // Read from URL on mount + on browser nav
+  // Read from URL on mount + on browser/back nav + custom hydra:datechange
   useEffect(() => {
     const sync = () => setSelectedDate(readSelectedDateFromLocation(todayISO));
     sync();
 
     const onPop = () => sync();
+    const onHydra = () => sync();
     window.addEventListener("popstate", onPop);
-    return () => window.removeEventListener("popstate", onPop);
+    window.addEventListener("hydra:datechange", onHydra as EventListener);
+    return () => {
+      window.removeEventListener("popstate", onPop);
+      window.removeEventListener("hydra:datechange", onHydra as EventListener);
+    };
   }, [todayISO]);
 
   const prev = useMemo(() => addDays(selectedDate, -1), [selectedDate]);
