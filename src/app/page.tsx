@@ -14,7 +14,7 @@ import {
   setWhoopMetrics,
 } from "../lib/localStore";
 import { calculateHydrationScore, WORKOUT_ML_PER_MIN } from "../lib/hydration";
-import { isISODate, readSelectedDateFromLocation } from "@/lib/selectedDate";
+import { useSelectedISODate } from "@/lib/selectedDate";
 
 const OZ_PER_ML = 1 / 29.5735;
 
@@ -45,24 +45,7 @@ type RiskTip = {
 };
 
 export default function Home() {
-  const todayISO = useMemo(() => formatNYDate(new Date()), []);
-  const [selectedDate, setSelectedDate] = useState<string>(todayISO);
-
-  // ✅ Sync selectedDate from URL on mount, back/forward, AND our custom date-change event.
-  useEffect(() => {
-    const sync = () => {
-      const iso = readSelectedDateFromLocation(todayISO);
-      setSelectedDate(isISODate(iso) ? iso : todayISO);
-    };
-
-    sync();
-    window.addEventListener("popstate", sync);
-    window.addEventListener("hydra:datechange", sync);
-    return () => {
-      window.removeEventListener("popstate", sync);
-      window.removeEventListener("hydra:datechange", sync);
-    };
-  }, [todayISO]);
+  const { todayISO, selectedDate } = useSelectedISODate();
 
   const [state, setState] = useState({
     target: 0,

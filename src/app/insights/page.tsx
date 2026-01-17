@@ -19,7 +19,7 @@ import {
   getWhoopMetrics,
   setWhoopMetrics,
 } from "../../lib/localStore";
-import { readSelectedDateFromLocation, isISODate } from "@/lib/selectedDate";
+import { useSelectedISODate } from "@/lib/selectedDate";
 
 type DayPoint = { date: string; score: number; target: number; actual: number };
 
@@ -450,24 +450,7 @@ function GoalCompletionBars({ points }: { points: DayPoint[] }) {
 
 export default function InsightsPage() {
   const router = useRouter();
-
-  const today = useMemo(() => formatNYDate(new Date()), []);
-  const [selectedDate, setSelectedDate] = useState<string>(today);
-
-  // ✅ Sync selectedDate from URL on mount, back/forward, AND hydra:datechange
-  useEffect(() => {
-    const sync = () => {
-      const iso = readSelectedDateFromLocation(today);
-      setSelectedDate(isISODate(iso) ? iso : today);
-    };
-    sync();
-    window.addEventListener("popstate", sync);
-    window.addEventListener("hydra:datechange", sync as EventListener);
-    return () => {
-      window.removeEventListener("popstate", sync);
-      window.removeEventListener("hydra:datechange", sync as EventListener);
-    };
-  }, [today]);
+  const { todayISO: today, selectedDate } = useSelectedISODate();
 
   const isToday = selectedDate === today;
 
