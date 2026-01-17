@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
 import { calculateHydrationScore, calculateHydrationTarget } from "../../lib/hydration";
+import { sumEffectiveMl } from "../../lib/localStore";
 
 export async function getRouteClient() {
 	const cookieStore = await cookies();
@@ -106,7 +107,7 @@ export async function recalcDay(userId: string, date: string) {
 		.filter("start_time", "gte", `${date}T00:00:00.000Z`)
 		.filter("start_time", "lt", `${date}T23:59:59.999Z`);
 
-	const actualMl = (intakes ?? []).reduce((sum, i) => sum + (i.volume_ml as number), 0);
+	const actualMl = sumEffectiveMl((intakes ?? []).map((i) => i as any));
 	const score = calculateHydrationScore(
 		{
 			targetMl: day.target_ml,

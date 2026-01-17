@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Button from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { addIntake, formatNYDate } from "../../lib/localStore";
+import type { BeverageType } from "../../lib/beverages";
 import { readSelectedDateFromLocation, isISODate } from "@/lib/selectedDate";
 
 type SuppKey =
@@ -15,7 +16,7 @@ type SuppKey =
   | "electrolyte_tablet"
   | "other";
 
-type DrinkType = "water" | "electrolyte" | "other";
+type DrinkType = BeverageType;
 
 function pad2(n: number) {
   return String(n).padStart(2, "0");
@@ -141,7 +142,20 @@ export default function LogPage() {
         <div>
           <label className="mb-2 block text-sm text-zinc-600 dark:text-zinc-300">Type</label>
           <div className="grid grid-cols-3 gap-2">
-            {(["water", "electrolyte", "other"] as const).map((t) => (
+            {(
+              [
+                "water",
+                "electrolyte",
+                "milk",
+                "coffee",
+                "soda",
+                "juice",
+                "beer",
+                "wine",
+                "cocktail",
+                "other",
+              ] as BeverageType[]
+            ).map((t) => (
               <button
                 key={t}
                 type="button"

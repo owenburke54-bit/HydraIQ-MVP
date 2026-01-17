@@ -11,6 +11,7 @@
 // Note: These helpers must be called from client components only.
 
 import { WORKOUT_ML_PER_MIN } from "./hydration";
+import { BeverageType, hydrationFactor } from "./beverages";
 
 type Profile = {
   name?: string;
@@ -24,7 +25,7 @@ type Intake = {
   id: string;
   timestamp: string; // ISO
   volume_ml: number;
-  type: "water" | "electrolyte" | "other";
+  type: BeverageType;
 };
 
 type Workout = {
@@ -167,6 +168,11 @@ export function getIntakesByDateNY(date: string): Intake[] {
   return list.filter((i) => formatNYDate(new Date(i.timestamp)) === date);
 }
 
+// Sum with hydration weighting factors
+export function sumEffectiveMl(intakes: Intake[]): number {
+  return intakes.reduce((s, i) => s + i.volume_ml * hydrationFactor(i.type), 0);
+}
+
 /**
  * Home should always show the selected NY date.
  * We keep a small fallback that compares the raw ISO date prefix,
@@ -301,7 +307,7 @@ export function recomputeSummary(dateNY: string) {
   const weight = profile?.weight_kg ?? 0;
 
   const ints = getIntakesByDateNY(dateNY);
-  const actual = ints.reduce((s, i) => s + i.volume_ml, 0);
+  const actual = sumEffectiveMl(ints);
 
   const w = getWorkoutsByDateNY(dateNY);
   const workoutAdj = w.reduce((sum, ww) => {

@@ -511,7 +511,7 @@ export default function InsightsPage() {
 
     const out: DayPoint[] = dates.map((date) => {
       const intakes = getIntakesByDateNY(date);
-      const actual = intakes.reduce((s, i) => s + i.volume_ml, 0);
+      const actual = sumEffectiveMl(intakes);
 
       let target = 0;
       if (weight > 0) {
@@ -695,7 +695,7 @@ export default function InsightsPage() {
 
   const selectedTotals = useMemo(() => {
     const intakes = getIntakesByDateNY(selectedDate);
-    const actual = intakes.reduce((s, i) => s + i.volume_ml, 0);
+    const actual = sumEffectiveMl(intakes);
     const target = dayBreakdown?.total ?? 0;
 
     const score =
