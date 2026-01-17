@@ -19,7 +19,7 @@ import {
   getWhoopMetrics,
   setWhoopMetrics,
 } from "../../lib/localStore";
-import { useSelectedISODate } from "@/lib/selectedDate";
+import { useSelectedISODate, isISODate } from "@/lib/selectedDate";
 
 type DayPoint = { date: string; score: number; target: number; actual: number };
 
