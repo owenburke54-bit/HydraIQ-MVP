@@ -232,7 +232,36 @@ export default function WorkoutsPage() {
           <WhoopControls selectedDate={selectedDate} isToday={isToday} onMessage={setMessage} onError={setError} />
         </div>
 
-function WhoopControls({ selectedDate, isToday, onMessage, onError }: { selectedDate: string; isToday: boolean; onMessage: (m: string | null) => void; onError: (e: string | null) => void; }) {
+        {workoutsForDay.length === 0 ? (
+          <p className="text-sm text-zinc-600 dark:text-zinc-400">No workouts logged for this day.</p>
+        ) : (
+          <ListEditable
+            workouts={workoutsForDay}
+            selectedDate={selectedDate}
+            onRefresh={bump}
+            onMessage={setMessage}
+            onError={setError}
+          />
+        )}
+
+        {error ? <p className="pt-2 text-center text-sm text-red-600">{error}</p> : null}
+        {message ? <p className="pt-2 text-center text-sm text-green-600">{message}</p> : null}
+      </div>
+    </div>
+  );
+}
+
+function WhoopControls({
+  selectedDate,
+  isToday,
+  onMessage,
+  onError,
+}: {
+  selectedDate: string;
+  isToday: boolean;
+  onMessage: (m: string | null) => void;
+  onError: (e: string | null) => void;
+}) {
   const [status, setStatus] = useState<{ connected: boolean; hasRefresh: boolean } | null>(null);
   useEffect(() => {
     (async () => {
@@ -276,7 +305,6 @@ function WhoopControls({ selectedDate, isToday, onMessage, onError }: { selected
 
             const json = await res.json();
 
-            // ✅ NEW: persist WHOOP day metrics from sync response (so Lag Effects has data)
             try {
               const m: any = json?.metrics;
               if (m && (m.sleepHours != null || m.recovery != null)) {
@@ -288,7 +316,6 @@ function WhoopControls({ selectedDate, isToday, onMessage, onError }: { selected
             } catch {}
 
             if (res.ok && Array.isArray(json.activities)) {
-              // Deduplicate: only add activities that don't already exist for this day
               const existing = getWorkoutsByDateNY(selectedDate);
               const keyOf = (t: string, iso: string) => {
                 const k = new Date(iso);
@@ -302,18 +329,26 @@ function WhoopControls({ selectedDate, isToday, onMessage, onError }: { selected
               for (const a of json.activities) {
                 try {
                   const start = a.start ?? a.start_time ?? a.created_at;
-                  if (!start) { skipped++; continue; }
+                  if (!start) {
+                    skipped++;
+                    continue;
+                  }
                   const end = a.end ?? a.end_time ?? start;
                   const type = a?.sport_name ? `WHOOP • ${toTitleCase(String(a.sport_name))}` : "WHOOP";
                   const key = keyOf(String(type), String(start));
-                  if (existingKeys.has(key)) { skipped++; continue; }
+                  if (existingKeys.has(key)) {
+                    skipped++;
+                    continue;
+                  }
                   const strain = typeof a?.score?.strain === "number" ? Number(a.score.strain) : null;
                   const intensity = typeof strain === "number" ? Math.max(0, Math.min(21, strain)) : null;
 
                   addWorkout({ type: String(type), start: new Date(start), end: new Date(end), intensity: intensity ?? undefined });
                   existingKeys.add(key);
                   added++;
-                } catch { skipped++; }
+                } catch {
+                  skipped++;
+                }
               }
 
               const parts: string[] = [];
@@ -335,26 +370,6 @@ function WhoopControls({ selectedDate, isToday, onMessage, onError }: { selected
     </>
   );
 }
-
-        {workoutsForDay.length === 0 ? (
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">No workouts logged for this day.</p>
-        ) : (
-          <ListEditable
-            workouts={workoutsForDay}
-            selectedDate={selectedDate}
-            onRefresh={bump}
-            onMessage={setMessage}
-            onError={setError}
-          />
-        )}
-
-        {error ? <p className="pt-2 text-center text-sm text-red-600">{error}</p> : null}
-        {message ? <p className="pt-2 text-center text-sm text-green-600">{message}</p> : null}
-      </div>
-    </div>
-  );
-}
-
 function ListEditable({
   workouts,
   selectedDate,
