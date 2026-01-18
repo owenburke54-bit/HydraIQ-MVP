@@ -7,6 +7,7 @@ import RegisterSW from "../components/RegisterSW";
 import StartupMigration from "../components/StartupMigration";
 import TopBar from "../components/TopBar";
 import { Analytics } from "@vercel/analytics/react";
+import OnboardingGate from "../components/OnboardingGate";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -46,6 +47,7 @@ export default function RootLayout({
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <RegisterSW />
         <StartupMigration />
+        <OnboardingGate />
 
         {/* ✅ useSearchParams() consumers (DateSwitcher) must be inside Suspense */}
         <Suspense
