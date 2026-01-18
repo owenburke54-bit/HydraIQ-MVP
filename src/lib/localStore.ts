@@ -347,6 +347,7 @@ export function getEnvironmentAdjustmentMl(): number {
 // WHOOP metrics cache (per NY date)
 export type WhoopMetrics = {
   sleep_hours: number | null;
+  sleep_performance: number | null; // percentage 0-100
   recovery_score: number | null;
   fetched_at: string;
 };
@@ -363,13 +364,14 @@ export function getWhoopMetrics(dateNY: string): WhoopMetrics | null {
  */
 export function setWhoopMetrics(
   dateNY: string,
-  m: { sleep_hours: number | null; recovery_score: number | null }
+  m: { sleep_hours: number | null; recovery_score: number | null; sleep_performance?: number | null }
 ) {
   const norm = (v: number | null) => (typeof v === "number" && Number.isFinite(v) ? v : null);
 
   const map = readJSON<WhoopMap>("hydra.whoop", {});
   map[dateNY] = {
     sleep_hours: norm(m.sleep_hours),
+    sleep_performance: norm(m.sleep_performance ?? null),
     recovery_score: norm(m.recovery_score),
     fetched_at: new Date().toISOString(),
   };

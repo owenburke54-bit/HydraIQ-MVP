@@ -34,7 +34,7 @@ type HistoryRow = {
   supplements_oz?: number;
   sleep_oz?: number;
   recovery_oz?: number;
-  sleep_hours: number | null;
+  sleep_perf: number | null;
   recovery_pct: number | null;
 };
 
@@ -512,6 +512,7 @@ export default function InsightsPage() {
           const j = await res.json();
           setWhoopMetrics(selectedDate, {
             sleep_hours: j.sleep_hours ?? null,
+            sleep_performance: j.sleep_performance ?? null,
             recovery_score: j.recovery_score ?? null,
           });
           setWhoopSelected({
@@ -635,6 +636,7 @@ export default function InsightsPage() {
           const j = await res.json();
           setWhoopMetrics(d, {
             sleep_hours: j.sleep_hours ?? null,
+            sleep_performance: j.sleep_performance ?? null,
             recovery_score: j.recovery_score ?? null,
           });
         } catch {
@@ -803,6 +805,7 @@ export default function InsightsPage() {
       // WHOOP cache for THAT day (used for that day's target modifier)
       const whoop = getWhoopMetrics(day);
       const sleepHours = whoop?.sleep_hours ?? null;
+      const sleepPerf = whoop?.sleep_performance ?? null;
       const recoveryPct = whoop?.recovery_score ?? null;
 
       const baseTargetMl = baseMl + workoutMl + creatineMl;
@@ -853,7 +856,7 @@ export default function InsightsPage() {
         creatine_oz: creatineMl / 29.5735,
         sleep_oz: sleepMl / 29.5735,
         recovery_oz: recoveryMl / 29.5735,
-        sleep_hours: sleepHours,
+        sleep_perf: sleepPerf,
         recovery_pct: recoveryPct,
       };
     });
@@ -861,7 +864,7 @@ export default function InsightsPage() {
     // only keep days with some signal (intake logged OR whoop data OR workouts)
     const trimmed = rows.filter((r) => {
       const hasHydration = Number(r.total_oz) > 0 || Number(r.hydration_score) > 0;
-      const hasWhoop = r.sleep_hours != null || r.recovery_pct != null;
+      const hasWhoop = r.sleep_perf != null || r.recovery_pct != null;
       const hasWorkouts = (r.workouts_oz ?? 0) > 0;
       return hasHydration || hasWhoop || hasWorkouts;
     });
@@ -896,19 +899,19 @@ export default function InsightsPage() {
       const yRow = map.get(dayYesterday);
       if (!yRow) continue;
 
-      if (todayRow.sleep_hours != null) {
+      if (todayRow.sleep_perf != null) {
         // Both yesterday and today must have hydration logged
         if (Number(yRow.total_oz) > 0 && Number(todayRow.total_oz) > 0)
           scoreToSleep.push({
             x: Number(yRow.hydration_score),
-            y: Number(todayRow.sleep_hours),
+            y: Number(todayRow.sleep_perf),
             dayToday,
             dayYesterday,
           });
         if (Number(yRow.total_oz) > 0 && Number(todayRow.total_oz) > 0)
           ozToSleep.push({
             x: Number(yRow.total_oz),
-            y: Number(todayRow.sleep_hours),
+            y: Number(todayRow.sleep_perf),
             dayToday,
             dayYesterday,
           });
@@ -1156,15 +1159,15 @@ export default function InsightsPage() {
               <div className="mt-4 grid gap-4 md:grid-cols-2">
                 <div className="rounded-2xl border border-zinc-200 p-4 dark:border-zinc-800">
                   <div className="flex items-center justify-between gap-2">
-                    <div className="text-sm font-medium">Score → Sleep (Next Day)</div>
+                    <div className="text-sm font-medium">Score → Sleep Performance (Next Day)</div>
                     <CorrKPI value={lagCorr.score_sleep} />
                   </div>
                   <ScatterPlot
                     pairs={lagPairs.scoreToSleep}
                     xLabel="Yesterday Score"
-                    yLabel="Sleep (h)"
+                    yLabel="Sleep Performance (%)"
                     xFmt={(v) => `${Math.round(v)}`}
-                    yFmt={(v) => `${v.toFixed(1)}`}
+                    yFmt={(v) => `${Math.round(v)}`}
                     height={260}
                   />
                   <p className="mt-2 text-xs text-zinc-500">Pairs: {lagPairs.scoreToSleep.length}</p>

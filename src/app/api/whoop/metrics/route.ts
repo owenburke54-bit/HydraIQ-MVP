@@ -76,6 +76,7 @@ export async function GET(req: Request) {
 	]);
 
 	let sleepHours: number | null = null;
+	let sleepPerformance: number | null = null;
 	try {
 		if (sleepRes.ok) {
 			const sJson: any = await sleepRes.json();
@@ -94,6 +95,18 @@ export async function GET(req: Request) {
 					return Number.isFinite(st) && Number.isFinite(en) ? sum + Math.max(0, en - st) : sum;
 				}, 0);
 				sleepHours = Math.round((totalMs / (1000 * 60 * 60)) * 10) / 10;
+
+				// Prefer WHOOP sleep performance percentage (0-100). Choose the max across records.
+				const perfs: number[] = records
+					.map((s) => {
+						const v = Number(s?.score?.sleep_performance_percentage);
+						return Number.isFinite(v) ? v : NaN;
+					})
+					.filter((v) => Number.isFinite(v)) as number[];
+				if (perfs.length) {
+					// round to nearest integer percentage
+					sleepPerformance = Math.round(Math.max(...perfs));
+				}
 			}
 		}
 	} catch {}
@@ -113,7 +126,11 @@ export async function GET(req: Request) {
 	} catch {}
 
 	// Return and refresh cookies so metrics persist through the day
-	const out = NextResponse.json({ sleep_hours: sleepHours, recovery_score: recovery });
+	const out = NextResponse.json({
+		sleep_hours: sleepHours,
+		sleep_performance: sleepPerformance,
+		recovery_score: recovery,
+	});
 	try {
 		if (nextRefresh && nextRefresh !== refreshToken) {
 			out.cookies.set("whoop_refresh", nextRefresh, {
