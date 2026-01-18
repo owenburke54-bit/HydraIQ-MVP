@@ -1064,9 +1064,7 @@ export default function InsightsPage() {
       if (delta >= 1) {
         insights.push({
           title: `${label} (next day)`,
-          body: `When yesterday’s score ≥${threshold}, ${label.toLowerCase()} is ~${delta} pts ${
-            diff > 0 ? "higher" : "lower"
-          } vs <${threshold} days (n=${high.length + low.length}).`,
+          body: `≥${threshold} yesterday → ~${delta} pts ${diff > 0 ? "higher" : "lower"} vs <${threshold}.`,
         });
       }
     };
@@ -1086,10 +1084,8 @@ export default function InsightsPage() {
       const recent = avg(scores.slice(-window));
       if (bestAvg != null && Number.isFinite(recent)) {
         insights.push({
-          title: "7-day rhythm",
-          body: `Your current 7‑day avg score is ${Math.round(recent)}. Best 7‑day avg: ${Math.round(
-            bestAvg
-          )}.`,
+          title: "7‑day rhythm",
+          body: `Current avg ${Math.round(recent)} • Best avg ${Math.round(bestAvg)}.`,
         });
       }
     }
@@ -1260,7 +1256,7 @@ export default function InsightsPage() {
             <section className="mt-4">
               <Card className="p-4">
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">So what?</p>
+                  <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Key takeaways</p>
                   <span className="text-xs text-zinc-500">Signal check, not causation.</span>
                 </div>
                 <div className="mt-3 grid gap-2">
@@ -1350,92 +1346,6 @@ export default function InsightsPage() {
             </Card>
           </section>
 
-          {/* 14-Day Summary */}
-          <section className="mt-4">
-            <Card className="p-4">
-              <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                Hydration (Last 14 Days)
-              </p>
-              <p className="mt-1 text-xs text-zinc-500">
-                Trend + key signals (built from your logged intake/workouts).
-              </p>
-
-              <div className="mt-4 grid grid-cols-3 gap-3">
-                <div className="rounded-2xl border border-zinc-200 p-3 dark:border-zinc-800">
-                  <div className="text-xs text-zinc-500">Avg</div>
-                  <div className="mt-1 text-2xl font-semibold tabular-nums">
-                    {last14Stats.avg == null ? "—" : Math.round(last14Stats.avg)}
-			</div>
-		</div>
-
-                <div className="rounded-2xl border border-zinc-200 p-3 dark:border-zinc-800">
-                  <div className="text-xs text-zinc-500">Best</div>
-                  <div className="mt-1 text-2xl font-semibold tabular-nums">
-                    {last14Stats.best ? Math.round(last14Stats.best.score) : "—"}
-                  </div>
-                  <div className="mt-1 text-xs text-zinc-500">
-                    {last14Stats.best ? last14Stats.best.date : ""}
-                  </div>
-                </div>
-
-                <div className="rounded-2xl border border-zinc-200 p-3 dark:border-zinc-800">
-                  <div className="text-xs text-zinc-500">Streak</div>
-                  <div className="mt-1 text-2xl font-semibold tabular-nums">
-                    {last14Stats.streak ?? 0}
-                  </div>
-                  <div className="mt-1 text-xs text-zinc-500">
-                    Days ≥ {last14Stats.threshold ?? 75}
-                  </div>
-                </div>
-              </div>
-
-              {/* Replace bars/heatmap with actionable trend + adherence */}
-              <div className="mt-4 rounded-2xl border border-zinc-200 p-3 dark:border-zinc-800">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
-                    Score lanes (14 days)
-                  </p>
-                </div>
-                <div className="mt-2">
-                  <ThresholdLanes
-                    days={points14Display.slice(-14).map((p) => ({ day: p.date, value: Number(p.score) || 0 }))}
-                  />
-                </div>
-                <div className="mt-2 flex items-center gap-2 text-[11px] text-zinc-600 dark:text-zinc-400">
-                  <span className="inline-flex items-center gap-1">
-                    <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
-                    ≥75
-                  </span>
-                  <span className="inline-flex items-center gap-1">
-                    <span className="inline-block h-2.5 w-2.5 rounded-full bg-amber-500" />
-                    50–74
-                  </span>
-                  <span className="inline-flex items-center gap-1">
-                    <span className="inline-block h-2.5 w-2.5 rounded-full bg-rose-500" />
-                    &lt;50
-                  </span>
-                </div>
-              </div>
-
-              <div className="mt-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
-                    Consistency (14 days) • Days ≥ {last14Stats.threshold ?? 75}:{" "}
-                    {(() => {
-                      const cnt = points14Display.slice(-14).filter((p) => Number(p.score) >= (last14Stats.threshold ?? 75)).length;
-                      return <span className="font-semibold">{cnt}/14</span>;
-                    })()}
-                  </p>
-                </div>
-                <div className="mt-2">
-                  <AdherenceGrid
-                    days={points14Display.slice(-14).map((p) => ({ day: p.date, value: Number(p.score) || 0 }))}
-                    threshold={last14Stats.threshold ?? 75}
-                  />
-                </div>
-              </div>
-            </Card>
-          </section>
         </>
       )}
     </div>
