@@ -17,7 +17,7 @@ export default function HydrationScoreCard({ score }: Props) {
 		<section className="mb-4 rounded-2xl border border-zinc-200 bg-white p-4 shadow-md dark:border-zinc-800 dark:bg-zinc-900">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm text-zinc-500">Today's Hydration Score</p>
+          <p className="text-sm font-semibold text-zinc-500">Today's Hydration Score</p>
           <p className="text-xs text-zinc-400">Hydration intelligence for performance.</p>
         </div>
         <span className={`text-xs font-medium ${status.className}`}>{status.label}</span>

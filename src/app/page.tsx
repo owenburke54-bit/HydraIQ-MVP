@@ -34,17 +34,6 @@ function fmtTimeNY(d: Date) {
     .toLowerCase();
 }
 
-function lastNDatesNY(n: number): string[] {
-  const arr: string[] = [];
-  const now = new Date();
-  for (let i = 0; i < n; i++) {
-    const d = new Date(now);
-    d.setDate(now.getDate() - i);
-    arr.push(formatNYDate(d));
-  }
-  return arr;
-}
-
 type HabitTip = {
   title: string;
   body: string;
@@ -383,17 +372,20 @@ export default function Home() {
       // If behind + trained + low recovery + late, surface a stronger callout.
       const behind = deficitOz >= 16; // ~>= 16oz behind
       const trained = Boolean(flags.workouts);
+      const workoutCount = getWorkoutsByDateNY(selectedDate).length;
       const lowRecovery = typeof recovery === "number" && recovery < 40;
 
       if (behind && (trained || lowRecovery) && late) {
         const parts: string[] = [];
-        if (trained) parts.push("workout");
+        if (trained) parts.push(`completed ${workoutCount === 1 ? "workout" : "workouts"}`);
         if (lowRecovery) parts.push(`low recovery (${Math.round(recovery)}%)`);
 
         return {
           level: "elevated",
           title: "Priority",
-          body: `You’re behind and have ${parts.join(" + ")}. Prioritize electrolytes and steady intake over the next few hours.`,
+          body: `You’re behind and have ${parts.join(
+            " + "
+          )}. Prioritize electrolytes and steady intake over the next few hours.`,
         };
       }
 
@@ -436,82 +428,6 @@ export default function Home() {
     };
   }, [state, selectedDate, isToday, mounted]);
 
-  const streakStats = useMemo(() => {
-    const profile = getProfile();
-    const weight = profile?.weight_kg ?? 0;
-    if (!weight || weight <= 0) return null;
-
-    const threshold = 75;
-    const days = lastNDatesNY(28);
-    const scores = days.map((day) => {
-      const intakes = getIntakesByDateNY(day);
-      const actualMl = sumEffectiveMl(intakes);
-      const workouts = getWorkoutsByDateNY(day);
-      const supplements = getSupplementsByDateNY(day);
-
-      const baseTargetMl = Math.round(weight * 35);
-      const workoutMl = workouts.reduce((sum, w) => {
-        const start = new Date(w.start_time);
-        const end = w.end_time ? new Date(w.end_time) : start;
-        const mins = Math.max(0, Math.round((end.getTime() - start.getTime()) / 60000));
-        const strain = typeof w.intensity === "number" ? Math.max(0, Math.min(21, w.intensity)) : 5;
-        const intensityFactor = 0.5 + strain / 21;
-        return sum + mins * WORKOUT_ML_PER_MIN * intensityFactor;
-      }, 0);
-
-      const creatineMl = supplements
-        .filter((s) => s.type === "creatine" && s.grams && s.grams > 0)
-        .reduce((sum, s) => sum + (s.grams || 0) * 70, 0);
-
-      const whoop = getWhoopMetrics(day);
-      const sleepHours = whoop?.sleep_hours ?? null;
-      const recoveryPct = whoop?.recovery_score ?? null;
-
-      let modPct = 0;
-      if (sleepHours != null) {
-        if (sleepHours < 7.5) modPct += Math.max(0, 7.5 - sleepHours) * 0.03;
-        else if (sleepHours > 8.5) modPct += -Math.max(0, sleepHours - 8.5) * 0.02;
-      }
-      if (recoveryPct != null) {
-        if (recoveryPct < 33) modPct += 0.05;
-        else if (recoveryPct < 66) modPct += 0.02;
-      }
-
-      const targetMl = Math.round(baseTargetMl + workoutMl + creatineMl + (baseTargetMl + workoutMl + creatineMl) * modPct);
-      const score =
-        targetMl > 0
-          ? calculateHydrationScore(
-              {
-                targetMl,
-                actualMl,
-                intakes: intakes.map((i) => ({
-                  timestamp: new Date(i.timestamp),
-                  volumeMl: i.volume_ml,
-                })),
-                workouts: [],
-              },
-              "final"
-            )
-          : 0;
-
-      return Number.isFinite(score) ? Number(score) : 0;
-    });
-
-    let streak = 0;
-    for (let i = 0; i < scores.length; i++) {
-      if (scores[i] >= threshold) streak++;
-      else break;
-    }
-
-    let bestWeek = 0;
-    for (let i = 0; i <= scores.length - 7; i++) {
-      const slice = scores.slice(i, i + 7);
-      const count = slice.filter((s) => s >= threshold).length;
-      if (count > bestWeek) bestWeek = count;
-    }
-
-    return { streak, bestWeek, threshold };
-  }, [state.actual, state.score, state.target, selectedDate, todayISO]);
 
   return (
     <div className="px-4 pb-4 pt-[calc(72px+env(safe-area-inset-top))]">
@@ -533,27 +449,6 @@ export default function Home() {
         </button>
       </div>
       <HydrationProgressBar actualMl={state.actual} targetMl={state.target} />
-
-      {streakStats ? (
-        <Card className="mb-4 p-4">
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Consistency</p>
-            <span className="text-xs text-zinc-500">Last 28 days</span>
-          </div>
-          <div className="mt-3 grid grid-cols-2 gap-3">
-            <div className="rounded-2xl border border-zinc-200 p-3 dark:border-zinc-800">
-              <div className="text-xs text-zinc-500">Current streak</div>
-              <div className="mt-1 text-2xl font-semibold tabular-nums">{streakStats.streak}</div>
-              <div className="mt-1 text-xs text-zinc-500">Days ≥ {streakStats.threshold}</div>
-            </div>
-            <div className="rounded-2xl border border-zinc-200 p-3 dark:border-zinc-800">
-              <div className="text-xs text-zinc-500">Best week</div>
-              <div className="mt-1 text-2xl font-semibold tabular-nums">{streakStats.bestWeek}</div>
-              <div className="mt-1 text-xs text-zinc-500">Days ≥ {streakStats.threshold}</div>
-            </div>
-          </div>
-        </Card>
-      ) : null}
 
       {/* ✅ Recommendations: cleaned layout (Idea 8) + habit coaching (Idea 4) + risk triggers (Idea 7) */}
       <Card className="mb-4 p-4 shadow-sm">
