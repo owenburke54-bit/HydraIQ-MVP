@@ -469,19 +469,15 @@ function ThresholdLanes({
   return (
     <svg viewBox={`0 0 ${w} ${h}`} className="w-full">
       {lanes.map((ln, idx) => (
-        <g key={idx}>
-          <rect
-            x={pad}
-            y={ln.y - 8}
-            width={w - pad * 2}
-            height={16}
-            rx={8}
-            fill={idx === 0 ? "#fee2e2" : idx === 1 ? "#ffedd5" : "#dcfce7"}
-          />
-          <text x={pad - 6} y={ln.y + 3} textAnchor="end" fontSize="9" fill="#64748b">
-            {ln.label}
-          </text>
-        </g>
+        <rect
+          key={idx}
+          x={pad}
+          y={ln.y - 8}
+          width={w - pad * 2}
+          height={16}
+          rx={8}
+          fill={idx === 0 ? "rgba(239,68,68,0.10)" : idx === 1 ? "rgba(245,158,11,0.10)" : "rgba(16,185,129,0.10)"}
+        />
       ))}
       {days.map((d, i) => {
         const lane = lanes.find((ln) => ln.test(Number(d.value) || 0)) || lanes[0];
