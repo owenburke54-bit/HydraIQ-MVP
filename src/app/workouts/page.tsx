@@ -228,19 +228,113 @@ export default function WorkoutsPage() {
           {isToday ? "Today" : "Workouts"} • {selectedDate}
         </h2>
 
-        <div className="mb-3 flex gap-2">
-          <a
-            href="/api/whoop/connect"
-            className="rounded-xl border px-3 py-2 text-sm dark:border-zinc-800"
-          >
-            Connect WHOOP
-          </a>
+        <div className="mb-3 flex flex-wrap gap-2">
+          <WhoopControls selectedDate={selectedDate} isToday={isToday} onMessage={setMessage} onError={setError} />
+        </div>
+@@
+function WhoopControls({ selectedDate, isToday, onMessage, onError }: { selectedDate: string; isToday: boolean; onMessage: (m: string | null) => void; onError: (e: string | null) => void; }) {
+  const [status, setStatus] = useState<{ connected: boolean; hasRefresh: boolean } | null>(null);
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/whoop/status", { credentials: "include" });
+        if (res.ok) {
+          const j = await res.json();
+          setStatus({ connected: !!j.connected, hasRefresh: !!j.hasRefresh });
+        } else {
+          setStatus({ connected: false, hasRefresh: false });
+        }
+      } catch {
+        setStatus({ connected: false, hasRefresh: false });
+      }
+    })();
+  }, []);
 
-          <button
-            className="rounded-xl border px-3 py-2 text-sm disabled:opacity-50 dark:border-zinc-800"
-            disabled={!isToday}
-            title={!isToday ? "WHOOP import is only available for Today right now" : ""}
-            onClick={async () => {
+  return (
+    <>
+      {!status?.connected ? (
+        <a href="/api/whoop/connect" className="rounded-xl border px-3 py-2 text-sm dark:border-zinc-800">
+          Connect WHOOP
+        </a>
+      ) : (
+        <span className="inline-flex items-center gap-1 rounded-xl border px-3 py-2 text-sm text-emerald-700 border-emerald-200 bg-emerald-50 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-300">
+          Connected{status.hasRefresh ? "" : " (short session)"}
+        </span>
+      )}
+
+      <button
+        className="rounded-xl border px-3 py-2 text-sm disabled:opacity-50 dark:border-zinc-800"
+        disabled={!isToday}
+        title={!isToday ? "WHOOP import is only available for Today right now" : ""}
+        onClick={async () => {
+          onMessage(null);
+          onError(null);
+          try {
+            const res = await fetch(`/api/whoop/sync?date=${selectedDate}`, {
+              credentials: "include",
+            });
+
+            const json = await res.json();
+
+            // ✅ NEW: persist WHOOP day metrics from sync response (so Lag Effects has data)
+            try {
+              const m: any = json?.metrics;
+              if (m && (m.sleepHours != null || m.recovery != null)) {
+                setWhoopMetrics(selectedDate, {
+                  sleep_hours: m.sleepHours ?? null,
+                  recovery_score: m.recovery ?? null,
+                });
+              }
+            } catch {}
+
+            if (res.ok && Array.isArray(json.activities)) {
+              // Deduplicate: only add activities that don't already exist for this day
+              const existing = getWorkoutsByDateNY(selectedDate);
+              const keyOf = (t: string, iso: string) => {
+                const k = new Date(iso);
+                k.setSeconds(0, 0);
+                return `${t}|${k.toISOString()}`;
+              };
+              const existingKeys = new Set(existing.map((w) => keyOf(String(w.type || ""), String(w.start_time))));
+
+              let added = 0;
+              let skipped = 0;
+              for (const a of json.activities) {
+                try {
+                  const start = a.start ?? a.start_time ?? a.created_at;
+                  if (!start) { skipped++; continue; }
+                  const end = a.end ?? a.end_time ?? start;
+                  const type = a?.sport_name ? `WHOOP • ${toTitleCase(String(a.sport_name))}` : "WHOOP";
+                  const key = keyOf(String(type), String(start));
+                  if (existingKeys.has(key)) { skipped++; continue; }
+                  const strain = typeof a?.score?.strain === "number" ? Number(a.score.strain) : null;
+                  const intensity = typeof strain === "number" ? Math.max(0, Math.min(21, strain)) : null;
+
+                  addWorkout({ type: String(type), start: new Date(start), end: new Date(end), intensity: intensity ?? undefined });
+                  existingKeys.add(key);
+                  added++;
+                } catch { skipped++; }
+              }
+
+              const parts: string[] = [];
+              const m: any = json?.metrics;
+              if (m?.sleepHours != null) parts.push(`Sleep ${Number(m.sleepHours).toFixed(1)}h`);
+              if (m?.recovery != null) parts.push(`Recovery ${Math.round(Number(m.recovery))}%`);
+              const suffix = parts.length ? ` • ${parts.join(" • ")}` : "";
+              onMessage(`Imported ${added} WHOOP activities (skipped ${skipped})${suffix}`);
+            } else {
+              onError(json?.error ?? "WHOOP not connected");
+            }
+          } catch {
+            onError("Failed to import from WHOOP");
+          }
+        }}
+      >
+        Import WHOOP (today)
+      </button>
+    </>
+  );
+}
               setMessage(null);
               setError(null);
               try {

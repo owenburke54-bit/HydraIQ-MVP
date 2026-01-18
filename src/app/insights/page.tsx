@@ -457,6 +457,9 @@ export default function InsightsPage() {
 
   const [points14, setPoints14] = useState<DayPoint[]>([]);
   const [tab, setTab] = useState<"today" | "history">("today");
+  const [pending, startTransition] = (React as any).useTransition
+    ? (React as any).useTransition()
+    : [false, (fn: any) => fn()];
 
   // Range selector for correlation charts (only logged days)
   type RangeKey = "7" | "30" | "90" | "all";
@@ -931,16 +934,24 @@ export default function InsightsPage() {
       }
     }
 
-    // After building all pairs, trim to the selected window length (logged-day pairs only)
+    // Intersect by dayToday so both charts always show the same final count
+    const daysScore = new Set(scoreToSleep.map((p) => p.dayToday));
+    const daysRec = new Set(scoreToRecovery.map((p) => p.dayToday));
+    const commonDays = [...daysScore].filter((d) => daysRec.has(d)).sort();
+
+    const scoreToSleepCommon = scoreToSleep.filter((p) => commonDays.includes(p.dayToday));
+    const scoreToRecoveryCommon = scoreToRecovery.filter((p) => commonDays.includes(p.dayToday));
+
+    // After intersecting, trim to the selected window length (logged-day pairs only)
     const limit = pairsWindow === "all" ? Infinity : Number(pairsWindow);
     const tail = (arr: Pair[]) =>
       pairsWindow === "all" ? arr : arr.slice(-Math.min(limit, arr.length));
 
     return {
-      scoreToSleep: tail(scoreToSleep),
-      ozToSleep: tail(ozToSleep),
-      scoreToRecovery: tail(scoreToRecovery),
-      ozToRecovery: tail(ozToRecovery),
+      scoreToSleep: tail(scoreToSleepCommon),
+      ozToSleep: tail(ozToSleep), // not used anymore but retained structurally
+      scoreToRecovery: tail(scoreToRecoveryCommon),
+      ozToRecovery: tail(ozToRecovery), // not used anymore but retained structurally
     };
   }, [historySorted, pairsWindow]);
 
@@ -1021,8 +1032,8 @@ export default function InsightsPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <TabPill label="Today" active={tab === "today"} onClick={() => setTab("today")} />
-          <TabPill label="History" active={tab === "history"} onClick={() => setTab("history")} />
+          <TabPill label="Today" active={tab === "today"} onClick={() => startTransition(() => setTab("today"))} />
+          <TabPill label="History" active={tab === "history"} onClick={() => startTransition(() => setTab("history"))} />
         </div>
       </div>
 
