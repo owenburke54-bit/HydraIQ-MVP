@@ -875,14 +875,15 @@ export default function InsightsPage() {
       if (!yRow) continue;
 
       if (todayRow.sleep_hours != null) {
-        if (Number.isFinite(yRow.hydration_score))
+        // Require real hydration data yesterday (not just WHOOP-only rows)
+        if (Number.isFinite(yRow.hydration_score) && Number(yRow.hydration_score) > 0)
           scoreToSleep.push({
             x: Number(yRow.hydration_score),
             y: Number(todayRow.sleep_hours),
             dayToday,
             dayYesterday,
           });
-        if (Number.isFinite(yRow.total_oz))
+        if (Number.isFinite(yRow.total_oz) && Number(yRow.total_oz) > 0)
           ozToSleep.push({
             x: Number(yRow.total_oz),
             y: Number(todayRow.sleep_hours),
@@ -892,14 +893,14 @@ export default function InsightsPage() {
       }
 
       if (todayRow.recovery_pct != null) {
-        if (Number.isFinite(yRow.hydration_score))
+        if (Number.isFinite(yRow.hydration_score) && Number(yRow.hydration_score) > 0)
           scoreToRecovery.push({
             x: Number(yRow.hydration_score),
             y: Number(todayRow.recovery_pct),
             dayToday,
             dayYesterday,
           });
-        if (Number.isFinite(yRow.total_oz))
+        if (Number.isFinite(yRow.total_oz) && Number(yRow.total_oz) > 0)
           ozToRecovery.push({
             x: Number(yRow.total_oz),
             y: Number(todayRow.recovery_pct),
