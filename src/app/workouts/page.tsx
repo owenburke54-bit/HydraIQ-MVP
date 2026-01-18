@@ -231,7 +231,7 @@ export default function WorkoutsPage() {
         <div className="mb-3 flex flex-wrap gap-2">
           <WhoopControls selectedDate={selectedDate} isToday={isToday} onMessage={setMessage} onError={setError} />
         </div>
-@@
+
 function WhoopControls({ selectedDate, isToday, onMessage, onError }: { selectedDate: string; isToday: boolean; onMessage: (m: string | null) => void; onError: (e: string | null) => void; }) {
   const [status, setStatus] = useState<{ connected: boolean; hasRefresh: boolean } | null>(null);
   useEffect(() => {
@@ -335,93 +335,6 @@ function WhoopControls({ selectedDate, isToday, onMessage, onError }: { selected
     </>
   );
 }
-              setMessage(null);
-              setError(null);
-              try {
-                const res = await fetch(`/api/whoop/sync?date=${selectedDate}`, {
-                  credentials: "include",
-                });
-
-                const json = await res.json();
-
-                // ✅ NEW: persist WHOOP day metrics from sync response (so Lag Effects has data)
-                try {
-                  const m: WhoopSyncMetrics | undefined = json?.metrics;
-                  if (m && (m.sleepHours != null || m.recovery != null)) {
-                    setWhoopMetrics(selectedDate, {
-                      sleep_hours: m.sleepHours ?? null,
-                      recovery_score: m.recovery ?? null,
-                    });
-                  }
-                } catch {
-                  // ignore metric persistence failures
-                }
-
-                if (res.ok && Array.isArray(json.activities)) {
-                  // Deduplicate: only add activities that don't already exist for this day
-                  const existing = getWorkoutsByDateNY(selectedDate);
-                  const keyOf = (t: string, iso: string) => {
-                    const k = new Date(iso);
-                    // normalize to minute to avoid ms jitter
-                    k.setSeconds(0, 0);
-                    return `${t}|${k.toISOString()}`;
-                  };
-                  const existingKeys = new Set(
-                    existing.map((w) => keyOf(String(w.type || ""), String(w.start_time)))
-                  );
-
-                  let added = 0;
-                  let skipped = 0;
-                  for (const a of json.activities) {
-                    try {
-                      const start = a.start ?? a.start_time ?? a.created_at;
-                      if (!start) { skipped++; continue; }
-                      const end = a.end ?? a.end_time ?? start;
-                      const type =
-                        a?.sport_name ? `WHOOP • ${toTitleCase(String(a.sport_name))}` : "WHOOP";
-                      const key = keyOf(String(type), String(start));
-                      if (existingKeys.has(key)) {
-                        skipped++;
-                        continue;
-                      }
-                      const strain =
-                        typeof a?.score?.strain === "number" ? Number(a.score.strain) : null;
-                      const intensity =
-                        typeof strain === "number" ? Math.max(0, Math.min(21, strain)) : null;
-
-                      addWorkout({
-                        type: String(type),
-                        start: new Date(start),
-                        end: new Date(end),
-                        intensity: intensity ?? undefined,
-                      });
-                      existingKeys.add(key);
-                      added++;
-                    } catch {
-                      skipped++;
-                    }
-                  }
-
-                  // Improve message to show metrics too (optional, but helpful)
-                  const m: WhoopSyncMetrics | undefined = json?.metrics;
-                  const parts: string[] = [];
-                  if (m?.sleepHours != null) parts.push(`Sleep ${Number(m.sleepHours).toFixed(1)}h`);
-                  if (m?.recovery != null) parts.push(`Recovery ${Math.round(Number(m.recovery))}%`);
-                  const suffix = parts.length ? ` • ${parts.join(" • ")}` : "";
-                  setMessage(`Imported ${added} WHOOP activities (skipped ${skipped})${suffix}`);
-
-                  bump();
-                } else {
-                  setError(json?.error ?? "WHOOP not connected");
-                }
-              } catch {
-                setError("Failed to import from WHOOP");
-              }
-            }}
-          >
-            Import WHOOP (today)
-          </button>
-        </div>
 
         {workoutsForDay.length === 0 ? (
           <p className="text-sm text-zinc-600 dark:text-zinc-400">No workouts logged for this day.</p>
