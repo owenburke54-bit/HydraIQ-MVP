@@ -54,7 +54,7 @@ export function BottomNav() {
   }, [dateParam]);
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-zinc-200 bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/70 dark:border-zinc-800 dark:bg-black/60">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-zinc-200 bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/70 dark:border-zinc-800 dark:bg-black/40 dark:backdrop-blur-xl dark:backdrop-saturate-150">
       <div className="mx-auto flex max-w-[420px] items-stretch justify-between px-4 pb-[calc(env(safe-area-inset-bottom))] pt-2">
         {items.map((item) => {
           const Icon = item.icon;
@@ -70,20 +70,20 @@ export function BottomNav() {
               className={twMerge(
                 "relative flex min-h-[48px] flex-1 flex-col items-center justify-center gap-1 rounded-xl p-2 text-xs transition-colors",
                 isActive
-                  ? "text-blue-600 dark:text-blue-400"
-                  : "text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+                  ? "text-blue-600 dark:text-emerald-300"
+                  : "text-zinc-600 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
               )}
               aria-label={item.label}
             >
               {/* active pill */}
               {isActive ? (
-                <span className="absolute inset-0 -z-10 rounded-xl bg-blue-50/80 dark:bg-blue-950/20" />
+                <span className="absolute inset-0 -z-10 rounded-xl bg-blue-50/80 dark:bg-[conic-gradient(at_70%_120%,rgba(34,197,94,0.22),rgba(59,130,246,0.22),rgba(147,51,234,0.22))] accent-glow" />
               ) : null}
               <Icon
                 size={22}
                 className={twMerge(
-                  "transition-colors",
-                  isActive ? "text-blue-600 dark:text-blue-400" : ""
+                  "transition-colors drop-shadow-sm",
+                  isActive ? "text-blue-600 dark:text-emerald-300" : ""
                 )}
               />
               <span className="leading-none">{item.label}</span>
