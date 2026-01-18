@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Card } from "../../components/ui/Card";
 import RadialGauge from "../../components/charts/RadialGauge";
@@ -457,9 +457,7 @@ export default function InsightsPage() {
 
   const [points14, setPoints14] = useState<DayPoint[]>([]);
   const [tab, setTab] = useState<"today" | "history">("today");
-  const [pending, startTransition] = (React as any).useTransition
-    ? (React as any).useTransition()
-    : [false, (fn: any) => fn()];
+  const [pending, startTransition] = useTransition();
 
   // Range selector for correlation charts (only logged days)
   type RangeKey = "7" | "30" | "90" | "all";
