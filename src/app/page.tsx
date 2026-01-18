@@ -254,6 +254,7 @@ export default function Home() {
     // Habit/pattern coaching (Idea 4)
     const tips: HabitTip[] = [];
     let patternLabel: string | null = null;
+    let maxGapMin = 0;
 
     try {
       // Bucket today/selected-day intakes by time of day (local device hour)
@@ -282,7 +283,6 @@ export default function Home() {
           top === morningMl ? "Morning-heavy" : top === afternoonMl ? "Afternoon-heavy" : "Evening-heavy";
 
         // Long gaps check (largest gap between intakes)
-        let maxGapMin = 0;
         for (let i = 1; i < ints.length; i++) {
           const a = new Date(ints[i - 1].timestamp).getTime();
           const b = new Date(ints[i].timestamp).getTime();
@@ -404,6 +404,12 @@ export default function Home() {
         ? { label: "On Target", tone: "good" as const }
         : { label: "Behind", tone: "warn" as const };
 
+    // Simple "next sip" suggestion for Today
+    const nextSipOz =
+      isToday && deficitOz > 0
+        ? Math.max(8, Math.min(16, Math.round(deficitOz / 3)))
+        : 0;
+
     return {
       flags,
       targetOz,
@@ -411,7 +417,9 @@ export default function Home() {
       deficitOz,
       status,
       patternLabel,
-      tips: tips.slice(0, 3),
+      tips: tips.slice(0, 2),
+      maxGapMin,
+      nextSipOz,
       risk,
     };
   }, [state, selectedDate, isToday, mounted]);
@@ -460,7 +468,7 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Primary message */}
+        {/* Primary message + quick actions */}
         <div className="mt-3 rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
           {state.target <= 0 ? (
             <p className="text-sm text-zinc-700 dark:text-zinc-300">
@@ -471,10 +479,21 @@ export default function Home() {
               Nice work — you hit your target for this day.
             </p>
           ) : isToday ? (
-            <p className="text-sm text-zinc-700 dark:text-zinc-300">
-              You’re <span className="font-semibold">{rec.deficitOz} oz</span> behind target. Focus on steady
-              sips and avoid a late-day chug.
-            </p>
+            <div className="space-y-2">
+              <p className="text-sm text-zinc-700 dark:text-zinc-300">
+                You’re <span className="font-semibold">{rec.deficitOz} oz</span> behind. Keep it steady.
+              </p>
+              {rec.nextSipOz > 0 ? (
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-blue-700 dark:border-blue-900/40 dark:bg-blue-950/30 dark:text-blue-200">
+                    Next: {rec.nextSipOz} oz
+                  </span>
+                  {rec.maxGapMin >= 120 ? (
+                    <span className="text-xs text-zinc-500">Longest gap ~{Math.round(rec.maxGapMin / 60)}h</span>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
           ) : (
             <p className="text-sm text-zinc-700 dark:text-zinc-300">
               You finished <span className="font-semibold">{rec.deficitOz} oz</span> below your target for
@@ -498,7 +517,7 @@ export default function Home() {
           ) : null}
         </div>
 
-        {/* Habit tips */}
+        {/* Tips */}
         {rec.tips.length ? (
           <div className="mt-3 grid gap-2">
             {rec.tips.map((t, idx) => (
@@ -513,23 +532,26 @@ export default function Home() {
           </div>
         ) : null}
 
-        {/* Target drivers (kept, but cleaner) */}
+        {/* Drivers: compact chips */}
         {mounted ? (
-          <div className="mt-3 rounded-2xl border border-zinc-200 bg-white p-4 text-sm dark:border-zinc-800 dark:bg-zinc-900">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-              Target Drivers
-            </p>
-            <div className="grid gap-1.5 text-sm text-zinc-700 dark:text-zinc-300">
-              <div>Base need from weight</div>
-              {rec.flags.workouts ? <div>Workouts adjustment</div> : null}
-              {rec.flags.creatine ? <div>Creatine</div> : null}
-              {rec.flags.whoop ? <div>Sleep/Recovery modifiers (WHOOP)</div> : null}
-            </div>
-
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            <span className="rounded-full border border-zinc-200 px-2.5 py-1 text-xs dark:border-zinc-800">
+              Base
+            </span>
+            {rec.flags.workouts ? (
+              <span className="rounded-full border border-zinc-200 px-2.5 py-1 text-xs dark:border-zinc-800">
+                Workouts
+              </span>
+            ) : null}
             {rec.flags.creatine ? (
-              <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
-                Creatine increases your target slightly — spread fluids through the day.
-              </p>
+              <span className="rounded-full border border-zinc-200 px-2.5 py-1 text-xs dark:border-zinc-800">
+                Creatine
+              </span>
+            ) : null}
+            {rec.flags.whoop ? (
+              <span className="rounded-full border border-zinc-200 px-2.5 py-1 text-xs dark:border-zinc-800">
+                WHOOP
+              </span>
             ) : null}
           </div>
         ) : null}
