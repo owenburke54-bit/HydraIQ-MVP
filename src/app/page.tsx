@@ -590,7 +590,7 @@ export default function Home() {
               <li>Built from today’s intake vs. your personalized target.</li>
               <li>Beverage types are weighted (water/electrolytes count most; alcohol doesn’t add to score).</li>
               <li>Timing matters: long dry gaps lower score; steady sips help.</li>
-              <li>Target adapts with workouts, creatine, and optional WHOOP sleep/recovery.</li>
+              <li>Target adapts with workouts, creatine, and (if connected) WHOOP sleep/recovery.</li>
             </ul>
             <div className="mt-3 rounded-xl bg-zinc-50 p-3 text-xs text-zinc-600 dark:bg-zinc-800/60 dark:text-zinc-300">
               Today: target {toOz(state.target)} oz • actual {toOz(state.actual)} oz • score {Math.round(state.score)}

@@ -367,6 +367,9 @@ function WhoopControls({
       >
         Import WHOOP (today)
       </button>
+      <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-400">
+        Optional: connect WHOOP to import workouts and add sleep/recovery context.
+      </p>
     </>
   );
 }

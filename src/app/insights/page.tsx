@@ -833,8 +833,8 @@ export default function InsightsPage() {
       if (whoopSelected.sleepHours != null) parts.push(`Sleep ${whoopSelected.sleepHours.toFixed(1)} h`);
       if (whoopSelected.recovery != null) parts.push(`Recovery ${Math.round(whoopSelected.recovery)}%`);
       messages.push({
-        title: "WHOOP Synergy",
-        body: `Target accounts for ${parts.join(", ")}.`,
+        title: "WHOOP (optional)",
+        body: `When connected, target accounts for ${parts.join(", ")}.`,
       });
     }
 

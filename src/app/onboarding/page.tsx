@@ -94,7 +94,7 @@ export default function OnboardingPage() {
             <ul className="list-disc space-y-1 pl-5 text-sm text-zinc-700 dark:text-zinc-300">
               <li>Get a personalized daily target</li>
               <li>See a simple Hydration Score and pacing guidance</li>
-              <li>Optionally connect WHOOP for sleep & recovery context</li>
+              <li>Optional: connect WHOOP for sleep & recovery context</li>
             </ul>
           </div>
           <div className="flex gap-2">
@@ -130,7 +130,7 @@ export default function OnboardingPage() {
                 <strong>Timing:</strong> Long dry gaps lower score; steady sips help.
               </li>
               <li>
-                <strong>Context:</strong> WHOOP sleep & recovery can gently adjust your target.
+                <strong>Context:</strong> If connected, WHOOP sleep & recovery can gently adjust your target.
               </li>
             </ol>
           </div>
