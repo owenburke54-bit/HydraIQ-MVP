@@ -458,6 +458,24 @@ export default function InsightsPage() {
   const [points14, setPoints14] = useState<DayPoint[]>([]);
   const [tab, setTab] = useState<"today" | "history">("today");
 
+  // Range selector for correlation charts (only logged days)
+  type RangeKey = "7" | "30" | "90" | "all";
+  const [pairsWindow, setPairsWindow] = useState<RangeKey>("30");
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("hydra:pairsWindow");
+      if (saved === "7" || saved === "30" || saved === "90" || saved === "all") {
+        setPairsWindow(saved);
+      }
+    } catch {}
+  }, []);
+  const onChangePairsWindow = (rk: RangeKey) => {
+    setPairsWindow(rk);
+    try {
+      localStorage.setItem("hydra:pairsWindow", rk);
+    } catch {}
+  };
+
   const [whoopSelected, setWhoopSelected] = useState<{
     sleepHours: number | null;
     recovery: number | null;
