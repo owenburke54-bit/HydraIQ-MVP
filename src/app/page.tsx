@@ -404,10 +404,10 @@ export default function Home() {
         ? { label: "On Target", tone: "good" as const }
         : { label: "Behind", tone: "warn" as const };
 
-    // Simple "next sip" suggestion for Today
+    // Suggestion for Today: small steady sips this hour
     const nextSipOz =
       isToday && deficitOz > 0
-        ? Math.max(8, Math.min(16, Math.round(deficitOz / 3)))
+        ? Math.max(8, Math.min(16, Math.round(deficitOz / 4)))
         : 0;
 
     return {
@@ -481,17 +481,15 @@ export default function Home() {
           ) : isToday ? (
             <div className="space-y-2">
               <p className="text-sm text-zinc-700 dark:text-zinc-300">
-                You’re <span className="font-semibold">{rec.deficitOz} oz</span> behind. Keep it steady.
+                You’re <span className="font-semibold">{rec.deficitOz} oz</span> behind target.
               </p>
               {rec.nextSipOz > 0 ? (
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-blue-700 dark:border-blue-900/40 dark:bg-blue-950/30 dark:text-blue-200">
-                    Next: {rec.nextSipOz} oz
-                  </span>
+                <p className="text-sm text-zinc-700 dark:text-zinc-300">
+                  Small steady sips — <span className="font-semibold">{rec.nextSipOz} oz</span> over the next hour.
                   {rec.maxGapMin >= 120 ? (
-                    <span className="text-xs text-zinc-500">Longest gap ~{Math.round(rec.maxGapMin / 60)}h</span>
+                    <span className="ml-2 text-xs text-zinc-500">Longest gap ~{Math.round(rec.maxGapMin / 60)}h</span>
                   ) : null}
-                </div>
+                </p>
               ) : null}
             </div>
           ) : (

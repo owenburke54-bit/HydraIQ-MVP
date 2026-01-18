@@ -793,7 +793,7 @@ export default function InsightsPage() {
     if (weight <= 0) return [] as HistoryRow[];
 
     // Build a smaller window to reduce work on mobile
-    const dates = lastNDatesNY(90).reverse();
+    const dates = lastNDatesNY(34).reverse();
 
     const rows: HistoryRow[] = dates.map((day) => {
       const intakes = getIntakesByDateNY(day);
