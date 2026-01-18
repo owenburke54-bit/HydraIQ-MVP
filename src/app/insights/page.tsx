@@ -1050,8 +1050,11 @@ export default function InsightsPage() {
     const insights: { title: string; body: string }[] = [];
     const avg = (arr: number[]) => arr.reduce((s, v) => s + v, 0) / Math.max(1, arr.length);
     const threshold = 80;
+    const MIN_PAIRS = 6;
+    const MIN_DELTA = 2;
 
     const addLagInsight = (pairs: Pair[], label: string) => {
+      if (pairs.length < MIN_PAIRS) return;
       const high = pairs.filter((p) => p.x >= threshold);
       const low = pairs.filter((p) => p.x < threshold);
       if (high.length < 3 || low.length < 3) return;
@@ -1061,12 +1064,14 @@ export default function InsightsPage() {
       const diff = highAvg - lowAvg;
       const delta = Math.round(Math.abs(diff));
 
-      if (delta >= 1) {
-        insights.push({
-          title: `${label} (next day)`,
-          body: `≥${threshold} yesterday → ~${delta} pts ${diff > 0 ? "higher" : "lower"} vs <${threshold}.`,
-        });
-      }
+      if (delta < MIN_DELTA) return;
+
+      insights.push({
+        title: `${label} (next day)`,
+        body: `High‑score days (≥${threshold}) show ~${delta} pts ${
+          diff > 0 ? "higher" : "lower"
+        } vs <${threshold} (n=${high.length + low.length}).`,
+      });
     };
 
     addLagInsight(lagPairs.scoreToSleep, "Sleep performance");
