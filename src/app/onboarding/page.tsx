@@ -88,8 +88,8 @@ export default function OnboardingPage() {
           </div>
           <div className="rounded-2xl border p-4 bg-white dark:border-zinc-800 dark:bg-zinc-900">
             <p className="mb-3 text-sm text-zinc-700 dark:text-zinc-300">
-              Hydration isn’t just “drink 8 cups.” It’s a daily rhythm. In ~30 seconds, we’ll set up your
-              personal hydration plan.
+              Hydration isn’t just “drink 8 cups.” It’s a performance signal. In ~30 seconds, we’ll set up
+              your personal hydration plan.
             </p>
             <ul className="list-disc space-y-1 pl-5 text-sm text-zinc-700 dark:text-zinc-300">
               <li>Get a personalized daily target</li>
