@@ -8,7 +8,7 @@ import {
   getSupplementsByDateNY,
   getWhoopMetrics,
   getWorkoutsByDateNY,
-  sumEffectiveMl,
+  getEffectiveActualMl,
 } from "../lib/localStore";
 import { WORKOUT_ML_PER_MIN } from "../lib/hydration";
 
@@ -52,7 +52,7 @@ export default function SmartNotifications() {
 
       const today = formatNYDate(new Date());
       const intakes = getIntakesByDateNY(today);
-      const actualMl = sumEffectiveMl(intakes);
+      const actualMl = getEffectiveActualMl(today, intakes);
       const workouts = getWorkoutsByDateNY(today);
       const supplements = getSupplementsByDateNY(today);
 

@@ -4,9 +4,11 @@ type Props = {
 
 export default function HydrationScoreCard({ score }: Props) {
 	const status =
-    score >= 80 ? { label: "Great", className: "text-emerald-600" } :
-		score >= 60 ? { label: "OK", className: "text-amber-600" } :
-    { label: "Low", className: "text-rose-600" };
+    score >= 80
+      ? { label: "Great", className: "border-emerald-200 bg-emerald-50 text-emerald-700" }
+      : score >= 60
+      ? { label: "OK", className: "border-amber-200 bg-amber-50 text-amber-700" }
+      : { label: "Low", className: "border-rose-200 bg-rose-50 text-rose-700" };
 
   const pct = Math.max(0, Math.min(100, score));
   const r = 38;
@@ -20,7 +22,11 @@ export default function HydrationScoreCard({ score }: Props) {
           <p className="text-sm font-semibold text-zinc-500">Today's Hydration Score</p>
           <p className="text-xs text-zinc-400">Hydration intelligence for performance.</p>
         </div>
-        <span className={`text-xs font-medium ${status.className}`}>{status.label}</span>
+        <span
+          className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold tracking-wide ${status.className}`}
+        >
+          {status.label}
+        </span>
       </div>
       <div className="mt-2 flex items-center gap-4">
         <svg viewBox="0 0 100 100" className="h-24 w-24">

@@ -10,10 +10,10 @@ import { readSelectedDateFromLocation, isISODate } from "@/lib/selectedDate";
 
 type SuppKey =
   | "creatine"
-  | "protein"
-  | "multivitamin"
-  | "fish_oil"
   | "electrolyte_tablet"
+  | "sodium"
+  | "potassium"
+  | "magnesium"
   | "other";
 
 type DrinkType = BeverageType;
@@ -106,10 +106,10 @@ export default function LogPage() {
 
   const suppOptions: { key: SuppKey; label: string }[] = [
     { key: "creatine", label: "Creatine" },
-    { key: "protein", label: "Protein Powder" },
-    { key: "multivitamin", label: "Multivitamin" },
-    { key: "fish_oil", label: "Fish Oil" },
     { key: "electrolyte_tablet", label: "Electrolyte Tablet" },
+    { key: "sodium", label: "Sodium" },
+    { key: "potassium", label: "Potassium" },
+    { key: "magnesium", label: "Magnesium" },
     { key: "other", label: "Other" },
   ];
 

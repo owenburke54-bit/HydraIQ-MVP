@@ -40,7 +40,13 @@ type Workout = {
 type SupplementEvent = {
   id: string;
   timestamp: string; // ISO
-  type: "creatine" | "protein" | "multivitamin" | "fish_oil" | "electrolyte_tablet" | "other";
+  type:
+    | "creatine"
+    | "electrolyte_tablet"
+    | "sodium"
+    | "potassium"
+    | "magnesium"
+    | "other";
   grams?: number | null;
 };
 
@@ -171,6 +177,28 @@ export function getIntakesByDateNY(date: string): Intake[] {
 // Sum with hydration weighting factors
 export function sumEffectiveMl(intakes: Intake[]): number {
   return intakes.reduce((s, i) => s + i.volume_ml * hydrationFactor(i.type), 0);
+}
+
+const ELECTROLYTE_SUPPS = new Set<SupplementEvent["type"]>([
+  "electrolyte_tablet",
+  "sodium",
+  "potassium",
+  "magnesium",
+]);
+
+export function getSupplementHydrationBonusMl(dateNY: string, actualMl: number): number {
+  if (actualMl <= 0) return 0;
+  const supps = getSupplementsByDateNY(dateNY);
+  const hasElectrolytes = supps.some((s) => ELECTROLYTE_SUPPS.has(s.type));
+  if (!hasElectrolytes) return 0;
+
+  // Conservative boost to effective intake when electrolytes are logged.
+  return Math.round(Math.min(actualMl * 0.05, 300));
+}
+
+export function getEffectiveActualMl(dateNY: string, intakes: Intake[]): number {
+  const base = sumEffectiveMl(intakes);
+  return base + getSupplementHydrationBonusMl(dateNY, base);
 }
 
 /**
@@ -307,7 +335,7 @@ export function recomputeSummary(dateNY: string) {
   const weight = profile?.weight_kg ?? 0;
 
   const ints = getIntakesByDateNY(dateNY);
-  const actual = sumEffectiveMl(ints);
+  const actual = getEffectiveActualMl(dateNY, ints);
 
   const w = getWorkoutsByDateNY(dateNY);
   const workoutAdj = w.reduce((sum, ww) => {

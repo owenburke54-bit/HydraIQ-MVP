@@ -17,7 +17,7 @@ import {
   getSupplementsByDateNY,
   getWhoopMetrics,
   setWhoopMetrics,
-  sumEffectiveMl,
+  getEffectiveActualMl,
 } from "../../lib/localStore";
 import { useSelectedISODate, isISODate } from "@/lib/selectedDate";
 
@@ -792,7 +792,7 @@ export default function InsightsPage() {
 
   const selectedTotals = useMemo(() => {
     const intakes = getIntakesByDateNY(selectedDate);
-    const actual = sumEffectiveMl(intakes);
+    const actual = getEffectiveActualMl(selectedDate, intakes);
     const target = dayBreakdown?.total ?? 0;
 
     const score =
@@ -859,7 +859,7 @@ export default function InsightsPage() {
       const workouts = getWorkoutsByDateNY(day);
       const supplements = getSupplementsByDateNY(day);
 
-      const actualMl = intakes.reduce((s, i) => s + i.volume_ml, 0);
+      const actualMl = getEffectiveActualMl(day, intakes);
 
       const baseMl = Math.round(weight * BASE_ML_PER_KG);
 

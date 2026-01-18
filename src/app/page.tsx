@@ -12,7 +12,7 @@ import {
   getSupplementsByDateNY,
   getWhoopMetrics,
   setWhoopMetrics,
-  sumEffectiveMl,
+  getEffectiveActualMl,
 } from "../lib/localStore";
 import { calculateHydrationScore, WORKOUT_ML_PER_MIN } from "../lib/hydration";
 import { useSelectedISODate } from "@/lib/selectedDate";
@@ -71,7 +71,7 @@ export default function Home() {
       // Skip background ticking for non-today dates
       if (!isToday) return;
       const intakes = getIntakesByDateNY(selectedDate);
-      const actual = sumEffectiveMl(intakes);
+      const actual = getEffectiveActualMl(selectedDate, intakes);
 
       setState((prev) => {
         const score =
@@ -123,7 +123,7 @@ export default function Home() {
 
     const intakes = getIntakesByDateNY(date);
     const workouts = getWorkoutsByDateNY(date);
-    const actual = sumEffectiveMl(intakes);
+    const actual = getEffectiveActualMl(date, intakes);
 
     if (!profile) {
       setState({
