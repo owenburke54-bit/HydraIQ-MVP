@@ -1,4 +1,4 @@
-﻿import { ButtonHTMLAttributes, forwardRef } from "react";
+import { ButtonHTMLAttributes, forwardRef } from "react";
 import { twMerge } from "tailwind-merge";
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -31,7 +31,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
 		<button
 			ref={ref}
 			className={twMerge(
-				"inline-flex items-center justify-center transition-colors disabled:opacity-60",
+				"inline-flex items-center justify-center transition-colors disabled:opacity-60 focus:outline-none focus-visible:shadow-[0_0_0_3px_var(--ring)] active:translate-y-[0.5px]",
 				variantClasses[variant],
 				sizeClasses[size],
 				className

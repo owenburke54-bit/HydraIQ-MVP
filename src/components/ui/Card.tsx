@@ -1,14 +1,23 @@
-﻿import { HTMLAttributes, PropsWithChildren } from "react";
+import { HTMLAttributes, PropsWithChildren } from "react";
 import { twMerge } from "tailwind-merge";
+
+type CardProps = HTMLAttributes<HTMLDivElement> & {
+	interactive?: boolean;
+	elevated?: boolean;
+};
 
 export function Card({
 	className,
+	interactive = false,
+	elevated = false,
 	...props
-}: PropsWithChildren<HTMLAttributes<HTMLDivElement>>) {
+}: PropsWithChildren<CardProps>) {
 	return (
 		<div
 			className={twMerge(
-				"rounded-2xl border border-zinc-200 bg-white shadow-md dark:border-zinc-800 dark:bg-zinc-900",
+				"rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900",
+				elevated ? "shadow-[var(--shadow-md)]" : "shadow-[var(--shadow-sm)]",
+				interactive ? "transition-shadow hover:shadow-[var(--shadow-md)]" : "",
 				className
 			)}
 			{...props}

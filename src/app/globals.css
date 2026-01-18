@@ -44,3 +44,21 @@ body {
   backdrop-filter: saturate(180%) blur(14px);
   -webkit-backdrop-filter: saturate(180%) blur(14px);
 }
+
+/* Motion: subtle entrance for sections/cards */
+@keyframes hydra-fade-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-in {
+  animation: hydra-fade-up 320ms ease-out both;
+}
+.animate-in-delayed {
+  animation: hydra-fade-up 420ms ease-out both;
+}
+
+/* Focus ring tokens */
+.focus-ring {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--ring);
+}
