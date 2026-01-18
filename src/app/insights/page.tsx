@@ -749,11 +749,14 @@ export default function InsightsPage() {
 
   // Build a local history series (hydration + WHOOP cache) so Lag Effects works even without /api/history.
   const localHistorySorted = useMemo(() => {
+    // Avoid heavy work unless the History tab is open
+    if (tab !== "history") return [] as HistoryRow[];
     const prof = getProfile();
     const weight = prof?.weight_kg ?? 0;
     if (weight <= 0) return [] as HistoryRow[];
 
-    const dates = lastNDatesNY(180).reverse();
+    // Build a smaller window to reduce work on mobile
+    const dates = lastNDatesNY(90).reverse();
 
     const rows: HistoryRow[] = dates.map((day) => {
       const intakes = getIntakesByDateNY(day);
