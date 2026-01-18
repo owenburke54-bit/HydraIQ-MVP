@@ -21,9 +21,11 @@ const DEFAULT_FACTORS: Record<BeverageType, number> = {
   electrolyte: 1.15, // sodium/glucose improves retention
   milk: 1.5, // high BHI due to electrolytes + slower emptying
   coffee: 0.95, // moderate caffeine slightly reduces net retention
-  beer: 0.7, // alcohol promotes diuresis; typical 4–5%
-  wine: 0.6, // higher ABV → stronger diuresis
-  cocktail: 0.5, // mixed spirits ~10–20% ABV
+  // Alcoholic beverages: do not contribute to hydration score (0.0 retention).
+  // Rationale: avoid increasing score from alcohol; future versions may add penalties.
+  beer: 0.0,
+  wine: 0.0,
+  cocktail: 0.0,
   soda: 0.9, // often caffeinated; modest reduction
   juice: 1.1, // carbs + electrolytes modestly improve retention
   other: 1.0,
