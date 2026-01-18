@@ -1047,23 +1047,14 @@ export default function InsightsPage() {
   }, [lagPairs]);
 
   const lagSummary = useMemo(() => {
-    const hasSleep = lagPairs.scoreToSleep.length > 0;
-    const hasRecovery = lagPairs.scoreToRecovery.length > 0;
+    const toPct = (v: number | null) =>
+      typeof v === "number" && Number.isFinite(v) ? `${Math.round(Math.abs(v) * 100)}%` : "—";
 
-    if (!hasSleep && !hasRecovery) {
-      return "Log hydration and sync WHOOP to see how yesterday’s score relates to next‑day sleep and recovery.";
-    }
+    const sleepPct = toPct(lagCorr.score_sleep);
+    const recoveryPct = toPct(lagCorr.score_recovery);
 
-    if (hasSleep && hasRecovery) {
-      return "These charts show how yesterday’s hydration score tracks with next‑day sleep performance and recovery.";
-    }
-
-    if (hasSleep) {
-      return "This chart shows how yesterday’s hydration score tracks with next‑day sleep performance.";
-    }
-
-    return "This chart shows how yesterday’s hydration score tracks with next‑day recovery.";
-  }, [lagPairs.scoreToSleep.length, lagPairs.scoreToRecovery.length]);
+    return `These charts show that there is a (${sleepPct}) correlation between Hydration Score and Sleep Performance, and a (${recoveryPct}) correlation between Hydration Score and Recovery.`;
+  }, [lagCorr.score_sleep, lagCorr.score_recovery]);
 
   // 7-day score series from saved history (preferred); fallback to local 14-day
   const last7Series = useMemo(() => {
