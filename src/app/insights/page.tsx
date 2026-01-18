@@ -454,6 +454,7 @@ function ThresholdLanes({
 }: {
   days: { day: string; value: number }[];
 }) {
+  const [hi, setHi] = useState<number | null>(null);
   const w = 420;
   const h = 90;
   const pad = 12;
@@ -485,7 +486,19 @@ function ThresholdLanes({
       {days.map((d, i) => {
         const lane = lanes.find((ln) => ln.test(Number(d.value) || 0)) || lanes[0];
         return (
-          <circle key={d.day} cx={sx(i)} cy={lane.y} r="4" fill={lane.color} opacity="0.9" />
+          <circle
+            key={d.day}
+            cx={sx(i)}
+            cy={lane.y}
+            r="4"
+            fill={lane.color}
+            opacity="0.9"
+            onMouseEnter={() => setHi(i)}
+            onMouseLeave={() => setHi(null)}
+            onTouchStart={() => setHi(i)}
+            onBlur={() => setHi(null)}
+            aria-label={`${d.day}: ${Math.round(Number(d.value) || 0)}`}
+          />
         );
       })}
       {/* highlight latest */}
@@ -501,6 +514,23 @@ function ThresholdLanes({
               {Math.round(Number(last.value) || 0)}
             </text>
           </>
+        );
+      })()}
+      {/* tooltip */}
+      {hi != null && (() => {
+        const d = days[hi];
+        const v = Math.round(Number(d?.value) || 0);
+        const lane = lanes.find((ln) => ln.test(Number(d?.value) || 0)) || lanes[0];
+        const x = sx(hi);
+        const y = lane.y;
+        const label = `${d.day.slice(5)} • ${v}`;
+        return (
+          <g>
+            <rect x={x - 34} y={y - 28} width={68} height={20} rx={6} fill="#ffffff" stroke="#e5e7eb" />
+            <text x={x} y={y - 14} textAnchor="middle" fontSize="10" fill="#334155">
+              {label}
+            </text>
+          </g>
         );
       })()}
     </svg>
@@ -1353,6 +1383,20 @@ export default function InsightsPage() {
                   <ThresholdLanes
                     days={points14Display.slice(-14).map((p) => ({ day: p.date, value: Number(p.score) || 0 }))}
                   />
+                </div>
+                <div className="mt-2 flex items-center gap-2 text-[11px] text-zinc-600 dark:text-zinc-400">
+                  <span className="inline-flex items-center gap-1">
+                    <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                    ≥75
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <span className="inline-block h-2.5 w-2.5 rounded-full bg-amber-500" />
+                    50–74
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <span className="inline-block h-2.5 w-2.5 rounded-full bg-rose-500" />
+                    &lt;50
+                  </span>
                 </div>
               </div>
 
