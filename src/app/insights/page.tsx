@@ -861,14 +861,16 @@ export default function InsightsPage() {
 
   const lagPairs = useMemo(() => {
     const map = new Map<string, HistoryRow>();
-    for (const r of historySorted) map.set(r.day, r);
+    const source =
+      pairsWindow === "all" ? historySorted : historySorted.slice(-Number(pairsWindow));
+    for (const r of source) map.set(r.day, r);
 
     const scoreToSleep: Pair[] = [];
     const ozToSleep: Pair[] = [];
     const scoreToRecovery: Pair[] = [];
     const ozToRecovery: Pair[] = [];
 
-    for (const todayRow of historySorted) {
+    for (const todayRow of source) {
       const dayToday = todayRow.day;
       const dayYesterday = addDaysISO(dayToday, -1);
       const yRow = map.get(dayYesterday);
@@ -911,7 +913,7 @@ export default function InsightsPage() {
     }
 
     return { scoreToSleep, ozToSleep, scoreToRecovery, ozToRecovery };
-  }, [historySorted]);
+  }, [historySorted, pairsWindow]);
 
   const lagCorr = useMemo(() => {
     const corr = (pairs: Pair[]) =>
@@ -1090,8 +1092,24 @@ export default function InsightsPage() {
           {/* Lag Effects */}
           <section className="mt-4">
             <Card className="p-4">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-3">
                 <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Lag Effects</p>
+                <div className="flex items-center gap-1">
+                  {(["7", "30", "90", "all"] as ("7" | "30" | "90" | "all")[]).map((rk) => (
+                    <button
+                      key={rk}
+                      type="button"
+                      onClick={() => onChangePairsWindow(rk)}
+                      className={
+                        rk === pairsWindow
+                          ? "inline-flex items-center rounded-xl border px-2.5 py-1 text-xs border-blue-600 bg-blue-50 text-blue-700 dark:border-blue-500 dark:bg-blue-950 dark:text-blue-200"
+                          : "inline-flex items-center rounded-xl border px-2.5 py-1 text-xs border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                      }
+                    >
+                      {rk === "all" ? "All" : `Last ${rk}`}
+                    </button>
+                  ))}
+                </div>
                 {noHistoryAtAll ? (
                   <span className="text-xs text-zinc-500">No saved history yet.</span>
                 ) : null}
