@@ -594,7 +594,7 @@ export default function InsightsPage() {
 
     const out: DayPoint[] = dates.map((date) => {
       const intakes = getIntakesByDateNY(date);
-      const actual = sumEffectiveMl(intakes);
+      const actual = getEffectiveActualMl(date, intakes);
 
       let target = 0;
       if (weight > 0) {
