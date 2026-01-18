@@ -879,7 +879,9 @@ export default function InsightsPage() {
 
   const lagPairs = useMemo(() => {
     const map = new Map<string, HistoryRow>();
-    const base = historySorted;
+    // Only use days where hydration was actually logged (total_oz > 0).
+    // This guarantees pairs reflect logged days only (no WHOOP-only days).
+    const base = historySorted.filter((r) => Number(r.total_oz) > 0);
     for (const r of base) map.set(r.day, r);
 
     const scoreToSleep: Pair[] = [];
@@ -894,15 +896,15 @@ export default function InsightsPage() {
       if (!yRow) continue;
 
       if (todayRow.sleep_hours != null) {
-        // Require real hydration data yesterday (not just WHOOP-only rows)
-        if (Number.isFinite(yRow.hydration_score) && Number(yRow.hydration_score) > 0)
+        // Both yesterday and today must have hydration logged
+        if (Number(yRow.total_oz) > 0 && Number(todayRow.total_oz) > 0)
           scoreToSleep.push({
             x: Number(yRow.hydration_score),
             y: Number(todayRow.sleep_hours),
             dayToday,
             dayYesterday,
           });
-        if (Number.isFinite(yRow.total_oz) && Number(yRow.total_oz) > 0)
+        if (Number(yRow.total_oz) > 0 && Number(todayRow.total_oz) > 0)
           ozToSleep.push({
             x: Number(yRow.total_oz),
             y: Number(todayRow.sleep_hours),
@@ -912,14 +914,14 @@ export default function InsightsPage() {
       }
 
       if (todayRow.recovery_pct != null) {
-        if (Number.isFinite(yRow.hydration_score) && Number(yRow.hydration_score) > 0)
+        if (Number(yRow.total_oz) > 0 && Number(todayRow.total_oz) > 0)
           scoreToRecovery.push({
             x: Number(yRow.hydration_score),
             y: Number(todayRow.recovery_pct),
             dayToday,
             dayYesterday,
           });
-        if (Number.isFinite(yRow.total_oz) && Number(yRow.total_oz) > 0)
+        if (Number(yRow.total_oz) > 0 && Number(todayRow.total_oz) > 0)
           ozToRecovery.push({
             x: Number(yRow.total_oz),
             y: Number(todayRow.recovery_pct),
