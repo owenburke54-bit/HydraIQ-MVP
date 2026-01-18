@@ -1046,57 +1046,24 @@ export default function InsightsPage() {
     };
   }, [lagPairs]);
 
-  const soWhat = useMemo(() => {
-    const insights: { title: string; body: string }[] = [];
-    const avg = (arr: number[]) => arr.reduce((s, v) => s + v, 0) / Math.max(1, arr.length);
-    const threshold = 80;
-    const MIN_PAIRS = 6;
-    const MIN_DELTA = 2;
+  const lagSummary = useMemo(() => {
+    const hasSleep = lagPairs.scoreToSleep.length > 0;
+    const hasRecovery = lagPairs.scoreToRecovery.length > 0;
 
-    const addLagInsight = (pairs: Pair[], label: string) => {
-      if (pairs.length < MIN_PAIRS) return;
-      const high = pairs.filter((p) => p.x >= threshold);
-      const low = pairs.filter((p) => p.x < threshold);
-      if (high.length < 3 || low.length < 3) return;
-
-      const highAvg = avg(high.map((p) => p.y));
-      const lowAvg = avg(low.map((p) => p.y));
-      const diff = highAvg - lowAvg;
-      const delta = Math.round(Math.abs(diff));
-
-      if (delta < MIN_DELTA) return;
-
-      insights.push({
-        title: `${label} (next day)`,
-        body: `High‑score days (≥${threshold}) show ~${delta} pts ${
-          diff > 0 ? "higher" : "lower"
-        } vs <${threshold} (n=${high.length + low.length}).`,
-      });
-    };
-
-    addLagInsight(lagPairs.scoreToSleep, "Sleep performance");
-    addLagInsight(lagPairs.scoreToRecovery, "Recovery");
-
-    if (historySorted.length >= 14) {
-      const scores = historySorted.map((r) => Number(r.hydration_score) || 0);
-      const window = 7;
-      let bestAvg = null as number | null;
-      for (let i = 0; i <= scores.length - window; i++) {
-        const slice = scores.slice(i, i + window);
-        const a = avg(slice);
-        if (bestAvg == null || a > bestAvg) bestAvg = a;
-      }
-      const recent = avg(scores.slice(-window));
-      if (bestAvg != null && Number.isFinite(recent)) {
-        insights.push({
-          title: "7‑day rhythm",
-          body: `Current avg ${Math.round(recent)} • Best avg ${Math.round(bestAvg)}.`,
-        });
-      }
+    if (!hasSleep && !hasRecovery) {
+      return "Log hydration and sync WHOOP to see how yesterday’s score relates to next‑day sleep and recovery.";
     }
 
-    return insights.slice(0, 4);
-  }, [historySorted, lagPairs.scoreToSleep, lagPairs.scoreToRecovery]);
+    if (hasSleep && hasRecovery) {
+      return "These charts show how yesterday’s hydration score tracks with next‑day sleep performance and recovery.";
+    }
+
+    if (hasSleep) {
+      return "This chart shows how yesterday’s hydration score tracks with next‑day sleep performance.";
+    }
+
+    return "This chart shows how yesterday’s hydration score tracks with next‑day recovery.";
+  }, [lagPairs.scoreToSleep.length, lagPairs.scoreToRecovery.length]);
 
   // 7-day score series from saved history (preferred); fallback to local 14-day
   const last7Series = useMemo(() => {
@@ -1257,28 +1224,6 @@ export default function InsightsPage() {
             </Card>
           </section>
 
-          {soWhat.length ? (
-            <section className="mt-4">
-              <Card className="p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Key takeaways</p>
-                  <span className="text-xs text-zinc-500">Signal check, not causation.</span>
-                </div>
-                <div className="mt-3 grid gap-2">
-                  {soWhat.map((s, i) => (
-                    <div
-                      key={`${s.title}-${i}`}
-                      className="rounded-xl border border-zinc-200 bg-white p-3 text-sm dark:border-zinc-800 dark:bg-zinc-900"
-                    >
-                      <p className="font-medium">{s.title}</p>
-                      <p className="mt-1 text-zinc-700 dark:text-zinc-300">{s.body}</p>
-                    </div>
-                  ))}
-                </div>
-              </Card>
-            </section>
-          ) : null}
-
           {/* Lag Effects */}
           <section className="mt-4">
             <Card className="p-4">
@@ -1348,6 +1293,13 @@ export default function InsightsPage() {
               <p className="mt-3 text-xs text-zinc-500">
                 Correlation is a directional signal check—not proof of causation.
               </p>
+            </Card>
+          </section>
+
+          <section className="mt-4">
+            <Card className="p-4">
+              <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Key Takeways</p>
+              <p className="mt-1 text-sm text-zinc-700 dark:text-zinc-300">{lagSummary}</p>
             </Card>
           </section>
 
