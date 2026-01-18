@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Card } from "../../components/ui/Card";
 import RadialGauge from "../../components/charts/RadialGauge";
-import CalendarHeatmap from "../../components/charts/CalendarHeatmap";
 import {
   calculateHydrationScore,
   WORKOUT_ML_PER_MIN,
@@ -445,6 +444,56 @@ function GoalCompletionBars({ points }: { points: DayPoint[] }) {
       <div className="mt-2 text-xs text-zinc-500">
         Goal Completion Ratio (Actual ÷ Target) • Dashed line = 1.0 target
       </div>
+    </div>
+  );
+}
+
+/** Tiny sparkline for 7-day moving average (visual trend) */
+function SparklineAvg({ values }: { values: number[] }) {
+  const w = 420;
+  const h = 56;
+  const pad = 8;
+  if (!values.length) return null;
+  const minY = Math.min(0, ...values);
+  const maxY = Math.max(100, ...values);
+  const sx = (i: number) =>
+    pad + (i / Math.max(1, values.length - 1)) * (w - pad * 2);
+  const sy = (v: number) =>
+    pad + (1 - (v - minY) / Math.max(1e-9, maxY - minY)) * (h - pad * 2);
+  const d = values.map((v, i) => `${i ? "L" : "M"} ${sx(i)} ${sy(v)}`).join(" ");
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} className="w-full">
+      <path d={d} fill="none" stroke="#2563eb" strokeWidth="2" />
+      {values.map((v, i) => (
+        <circle key={i} cx={sx(i)} cy={sy(v)} r="2.5" fill="#2563eb" />
+      ))}
+    </svg>
+  );
+}
+
+/** Compact 14-cell adherence grid (>= threshold is green) */
+function AdherenceGrid({
+  days,
+  threshold = 75,
+}: {
+  days: { day: string; value: number }[];
+  threshold?: number;
+}) {
+  const cols = 14;
+  const cell = 14;
+  return (
+    <div className="grid grid-cols-14 gap-1" style={{ gridTemplateColumns: `repeat(${cols}, ${cell}px)` }}>
+      {days.slice(-14).map((p) => {
+        const ok = Number(p.value) >= threshold;
+        return (
+          <div
+            key={p.day}
+            className={ok ? "rounded-sm bg-emerald-500" : "rounded-sm bg-zinc-300 dark:bg-zinc-700"}
+            style={{ width: cell, height: cell }}
+            title={`${p.day}: ${Math.round(p.value)}`}
+          />
+        );
+      })}
     </div>
   );
 }
@@ -1257,16 +1306,58 @@ export default function InsightsPage() {
                 </div>
               </div>
 
-              <GoalCompletionBars points={(last14Stats as any).pts ?? points14Display} />
-
-              <div className="mt-4">
+              {/* Replace bars/heatmap with actionable trend + adherence */}
+              <div className="mt-4 rounded-2xl border border-zinc-200 p-3 dark:border-zinc-800">
                 <div className="flex items-center justify-between">
                   <p className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
-                    Score Heatmap (14 Days)
+                    7-day average
+                  </p>
+                  {(() => {
+                    const vals = points14Display.slice(-14).map((p) => Number(p.score) || 0);
+                    const a = vals.slice(-7);
+                    const b = vals.slice(-14, -7);
+                    const avg = (arr: number[]) => (arr.length ? arr.reduce((s, v) => s + v, 0) / arr.length : 0);
+                    const now = Math.round(avg(a));
+                    const prev = Math.round(avg(b));
+                    const delta = now - prev;
+                    const sign = delta > 0 ? "+" : "";
+                    return (
+                      <span className={delta >= 0 ? "text-emerald-600 text-xs" : "text-rose-600 text-xs"}>
+                        {now} ({sign}{delta})
+                      </span>
+                    );
+                  })()}
+                </div>
+                <div className="mt-2">
+                  {(() => {
+                    const vals = points14Display.slice(-14).map((p) => Number(p.score) || 0);
+                    // build 7d moving average series over last 14 (first 7 may be partial)
+                    const avg7: number[] = [];
+                    for (let i = 0; i < vals.length; i++) {
+                      const slice = vals.slice(Math.max(0, i - 6), i + 1);
+                      const v = slice.reduce((s, x) => s + x, 0) / slice.length;
+                      avg7.push(v);
+                    }
+                    return <SparklineAvg values={avg7} />;
+                  })()}
+                </div>
+              </div>
+
+              <div className="mt-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                    Adherence (14 days) • Days ≥ {last14Stats.threshold ?? 75}:{" "}
+                    {(() => {
+                      const cnt = points14Display.slice(-14).filter((p) => Number(p.score) >= (last14Stats.threshold ?? 75)).length;
+                      return <span className="font-semibold">{cnt}/14</span>;
+                    })()}
                   </p>
                 </div>
                 <div className="mt-2">
-                  <CalendarHeatmap cells={points14Display.map((p) => ({ date: p.date, value: p.score }))} />
+                  <AdherenceGrid
+                    days={points14Display.slice(-14).map((p) => ({ day: p.date, value: Number(p.score) || 0 }))}
+                    threshold={last14Stats.threshold ?? 75}
+                  />
                 </div>
               </div>
             </Card>
