@@ -1,0 +1,31 @@
+{
+	"folders": [
+		{
+			"name": "whoop-plus-prototype",
+			"path": "../../../whoop-plus-prototype"
+		},
+		{
+			"name": "Vic_Bible",
+			"path": "../../../Vic_Bible"
+		},
+		{
+			"name": "portfolio-site",
+			"path": "../../../portfolio-site"
+		},
+		{
+			"name": "HydraIQ",
+			"path": "../.."
+		},
+		{
+			"name": "fin-advisor",
+			"path": "../../../fin-advisor"
+		},
+		{
+			"path": "../../../video-analyzer-v1"
+		},
+		{
+			"path": "../../../mom-cookbook"
+		}
+	],
+	"settings": {}
+}

@@ -269,6 +269,14 @@ export default function ProfilePage() {
 
         <button
           type="button"
+          className="h-12 w-full rounded-2xl border border-zinc-200 text-zinc-700 dark:border-zinc-800 dark:text-zinc-300"
+          onClick={() => router.push("/onboarding")}
+        >
+          Revisit onboarding
+        </button>
+
+        <button
+          type="button"
           disabled={loading}
           className="h-12 w-full rounded-2xl bg-blue-600 text-white shadow-md active:scale-[0.98] disabled:opacity-60"
           onClick={async () => {
