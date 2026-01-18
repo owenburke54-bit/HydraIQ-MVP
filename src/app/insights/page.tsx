@@ -503,11 +503,14 @@ export default function InsightsPage() {
           cached &&
           cached.fetched_at &&
           Date.now() - new Date(cached.fetched_at).getTime() < TTL_MS;
-        const res = fresh
-          ? null
-          : await fetch(`/api/whoop/metrics?date=${selectedDate}`, {
-              credentials: "include",
-            });
+        // If sleep_performance is missing, force a fetch even if TTL says fresh
+        const needsPerf = !cached || cached.sleep_performance == null;
+        const res =
+          fresh && !needsPerf
+            ? null
+            : await fetch(`/api/whoop/metrics?date=${selectedDate}`, {
+                credentials: "include",
+              });
         if (res && res.ok) {
           const j = await res.json();
           setWhoopMetrics(selectedDate, {
@@ -628,7 +631,14 @@ export default function InsightsPage() {
         if (cancelled) return;
 
         const cached = getWhoopMetrics(d);
-        if (cached && (cached.sleep_hours != null || cached.recovery_score != null)) continue;
+        // We need sleep_performance for lag effects; refetch if it's missing
+        if (
+          cached &&
+          cached.sleep_performance != null &&
+          (cached.sleep_hours != null || cached.recovery_score != null)
+        ) {
+          continue;
+        }
 
         try {
           const res = await fetch(`/api/whoop/metrics?date=${d}`, { credentials: "include" });
