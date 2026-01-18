@@ -1,7 +1,7 @@
-\"use client\";
+"use client";
 
-import { useEffect } from \"react\";
-import { usePathname, useRouter } from \"next/navigation\";
+import { useEffect } from "react";
+import { usePathname, useRouter } from "next/navigation";
 
 /**
  * Client-side gate that redirects first-time users to /onboarding
@@ -16,14 +16,14 @@ export default function OnboardingGate() {
     let cancelled = false;
 
     const run = () => {
-      if (typeof window === \"undefined\") return;
+      if (typeof window === "undefined") return;
       // Skip on auth and onboarding routes
-      if (pathname?.startsWith(\"/onboarding\") || pathname?.startsWith(\"/auth\")) return;
+      if (pathname?.startsWith("/onboarding") || pathname?.startsWith("/auth")) return;
       try {
-        const hasProfile = !!localStorage.getItem(\"hydra.profile\");
-        const done = localStorage.getItem(\"hydra:onboardingDone\") === \"1\";
+        const hasProfile = !!localStorage.getItem("hydra.profile");
+        const done = localStorage.getItem("hydra:onboardingDone") === "1";
         if (!hasProfile && !done && !cancelled) {
-          router.replace(\"/onboarding\");
+          router.replace("/onboarding");
         }
       } catch {
         // ignore
