@@ -267,6 +267,32 @@ export default function ProfilePage() {
           </div>
         </div>
 
+        <div className="rounded-2xl border border-zinc-200 p-3 text-sm dark:border-zinc-800">
+          <p className="mb-2 text-sm font-medium">Legal & Privacy</p>
+          <p className="text-xs text-zinc-600 dark:text-zinc-400">
+            HydraIQ provides hydration guidance only and is not medical advice.
+          </p>
+          <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-400">
+            Offline: core logging works offline, but WHOOP sync and cloud history need a connection.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              className="rounded-xl border px-3 py-2 text-sm"
+              onClick={() => router.push("/privacy")}
+            >
+              Privacy policy
+            </button>
+            <button
+              type="button"
+              className="rounded-xl border px-3 py-2 text-sm"
+              onClick={() => router.push("/data-deletion")}
+            >
+              Data deletion
+            </button>
+          </div>
+        </div>
+
         <button
           type="button"
           className="h-12 w-full rounded-2xl border border-zinc-200 text-zinc-700 dark:border-zinc-800 dark:text-zinc-300"

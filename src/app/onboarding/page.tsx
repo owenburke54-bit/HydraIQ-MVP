@@ -96,6 +96,9 @@ export default function OnboardingPage() {
               <li>See a simple Hydration Score and pacing guidance</li>
               <li>Optional: connect WHOOP for sleep & recovery context</li>
             </ul>
+            <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
+              HydraIQ provides hydration guidance only and is not medical advice.
+            </p>
           </div>
           <div className="flex gap-2">
             <button
