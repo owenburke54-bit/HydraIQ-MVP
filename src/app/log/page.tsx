@@ -130,46 +130,6 @@ export default function LogPage() {
       </div>
 
       <Card className="mt-4 space-y-4 p-4">
-        {/* Quick actions */}
-        {selectedDate === todayISO ? (
-          <div className="flex flex-wrap gap-2">
-            {lastIntakeOz ? (
-              <button
-                type="button"
-                className="rounded-full border border-zinc-200 px-3 py-1 text-xs shadow-sm dark:border-zinc-800"
-                onClick={async () => {
-                  setMessage(null);
-                  try {
-                    const ml = lastIntakeOz * 29.5735;
-                    const when = new Date(); // now
-                    addIntake(ml, (lastType ?? "water") as BeverageType, when);
-                    setMessage(`Logged ${lastIntakeOz} oz ${lastType ?? "water"}`);
-                    router.replace(`/?date=${selectedDate}`);
-                  } catch {
-                    setMessage("Could not log drink");
-                  }
-                }}
-              >
-                Log last again{lastType ? ` (${lastIntakeOz} oz ${lastType})` : ""}
-              </button>
-            ) : null}
-            <span className="ml-auto" />
-            {[8, 12, 16, 24].map((oz) => (
-              <button
-                key={oz}
-                type="button"
-                className="rounded-full border border-zinc-200 px-3 py-1 text-xs dark:border-zinc-800"
-                onClick={() => {
-                  setType("water");
-                  setVolume(oz);
-                  setTime(defaultTimeForDate(selectedDate));
-                }}
-              >
-                {oz} oz water
-              </button>
-            ))}
-          </div>
-        ) : null}
         <div>
           <label className="mb-2 block text-sm text-zinc-600 dark:text-zinc-300">Volume (oz)</label>
           <input
@@ -197,33 +157,27 @@ export default function LogPage() {
         <div>
           <label className="mb-2 block text-sm text-zinc-600 dark:text-zinc-300">Type</label>
           <div className="grid grid-cols-3 gap-2">
-            {(
-              [
-                "water",
-                "electrolyte",
-                "milk",
-                "coffee",
-                "soda",
-                "juice",
-                "beer",
-                "wine",
-                "cocktail",
-                "other",
-              ] as BeverageType[]
-            ).map((t) => (
-              <button
-                key={t}
-                type="button"
-                onClick={() => setType(t)}
-                className={`rounded-xl border p-2 text-sm capitalize ${
-                  type === t
+            {(["water", "electrolyte", "milk", "coffee", "soda", "juice", "beer", "wine", "cocktail", "other"] as BeverageType[]).map(
+              (t, idx) => {
+                const isOther = t === "other";
+                const base =
+                  "rounded-xl border p-2 text-sm capitalize " +
+                  (type === t
                     ? "border-blue-600 bg-blue-50 text-blue-700 dark:border-blue-500 dark:bg-blue-950 dark:text-blue-200"
-                    : "border-zinc-200 bg-white text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200"
-                }`}
-              >
-                {t}
-              </button>
-            ))}
+                    : "border-zinc-200 bg-white text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200");
+                const pos = isOther ? " col-start-2" : "";
+                return (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setType(t)}
+                    className={base + pos}
+                  >
+                    {t}
+                  </button>
+                );
+              }
+            )}
           </div>
         </div>
 

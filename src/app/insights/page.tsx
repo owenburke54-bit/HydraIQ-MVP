@@ -449,86 +449,34 @@ function GoalCompletionBars({ points }: { points: DayPoint[] }) {
 }
 
 /** Tiny sparkline for 7-day moving average (visual trend) */
-function ThresholdLanes({
-  days,
-}: {
-  days: { day: string; value: number }[];
-}) {
-  const [hi, setHi] = useState<number | null>(null);
+function ThresholdLanes({ days }: { days: { day: string; value: number }[] }) {
   const w = 420;
-  const h = 90;
-  const pad = 12;
-  const lanes = [
-    { y: 70, label: "<50", color: "#ef4444", test: (v: number) => v < 50 },
-    { y: 48, label: "50–74", color: "#f59e0b", test: (v: number) => v >= 50 && v < 75 },
-    { y: 26, label: "≥75", color: "#10b981", test: (v: number) => v >= 75 },
-  ];
+  const h = 80;
+  const pad = 16;
   if (!days.length) return null;
-  const sx = (i: number) =>
-    pad + (i / Math.max(1, days.length - 1)) * (w - pad * 2);
+  const sx = (i: number) => pad + (i / Math.max(1, days.length - 1)) * (w - pad - 8);
+  const sy = (pct: number) => {
+    const v = Math.max(0, Math.min(100, pct));
+    return pad + (1 - v / 100) * (h - 2 * pad);
+  };
   return (
     <svg viewBox={`0 0 ${w} ${h}`} className="w-full">
-      {lanes.map((ln, idx) => (
-        <rect
-          key={idx}
-          x={pad}
-          y={ln.y - 8}
-          width={w - pad * 2}
-          height={16}
-          rx={8}
-          fill={idx === 0 ? "rgba(239,68,68,0.10)" : idx === 1 ? "rgba(245,158,11,0.10)" : "rgba(16,185,129,0.10)"}
+      {[75, 50, 25].map((g, i) => (
+        <line
+          key={g}
+          x1={pad}
+          y1={sy(g)}
+          x2={w - 8}
+          y2={sy(g)}
+          stroke={i === 0 ? "#10b98166" : "#e5e7eb55"}
+          strokeDasharray={i === 0 ? "4 4" : "2 6"}
         />
       ))}
       {days.map((d, i) => {
-        const lane = lanes.find((ln) => ln.test(Number(d.value) || 0)) || lanes[0];
-        return (
-          <circle
-            key={d.day}
-            cx={sx(i)}
-            cy={lane.y}
-            r="4"
-            fill={lane.color}
-            opacity="0.9"
-            onMouseEnter={() => setHi(i)}
-            onMouseLeave={() => setHi(null)}
-            onTouchStart={() => setHi(i)}
-            onBlur={() => setHi(null)}
-            aria-label={`${d.day}: ${Math.round(Number(d.value) || 0)}`}
-          />
-        );
+        const v = Number(d.value) || 0;
+        const color = v >= 75 ? "#10b981" : v >= 50 ? "#f59e0b" : "#ef4444";
+        return <circle key={d.day} cx={sx(i)} cy={sy(v)} r={3.5} fill={color} opacity="0.95" />;
       })}
-      {/* highlight latest */}
-      {(() => {
-        const last = days[days.length - 1];
-        if (!last) return null;
-        const i = days.length - 1;
-        const lane = lanes.find((ln) => ln.test(Number(last.value) || 0)) || lanes[0];
-        return (
-          <>
-            <circle cx={sx(i)} cy={lane.y} r="7" fill={lane.color} opacity="0.2" />
-            <text x={sx(i) + 8} y={lane.y + 3} fontSize="10" fill="#475569">
-              {Math.round(Number(last.value) || 0)}
-            </text>
-          </>
-        );
-      })()}
-      {/* tooltip */}
-      {hi != null && (() => {
-        const d = days[hi];
-        const v = Math.round(Number(d?.value) || 0);
-        const lane = lanes.find((ln) => ln.test(Number(d?.value) || 0)) || lanes[0];
-        const x = sx(hi);
-        const y = lane.y;
-        const label = `${d.day.slice(5)} • ${v}`;
-        return (
-          <g>
-            <rect x={x - 34} y={y - 28} width={68} height={20} rx={6} fill="#ffffff" stroke="#e5e7eb" />
-            <text x={x} y={y - 14} textAnchor="middle" fontSize="10" fill="#334155">
-              {label}
-            </text>
-          </g>
-        );
-      })()}
     </svg>
   );
 }

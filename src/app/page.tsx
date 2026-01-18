@@ -568,13 +568,13 @@ export default function Home() {
       {/* Score info modal */}
       {showScoreInfo ? (
         <div
-          className="fixed inset-0 z-[200] grid place-items-center bg-black/40 p-4"
+          className="fixed inset-0 z-[9999] grid min-h-screen place-items-center bg-black/60 p-0"
           onClick={() => setShowScoreInfo(false)}
           role="dialog"
           aria-modal="true"
         >
           <div
-            className="w-full max-w-[420px] rounded-2xl border border-zinc-200 bg-white p-4 shadow-xl animate-in dark:border-zinc-800 dark:bg-zinc-900"
+            className="mx-4 w-full max-w-[420px] rounded-2xl border border-zinc-200 bg-white p-4 shadow-xl animate-in dark:border-zinc-800 dark:bg-zinc-900"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-2 flex items-center justify-between">
