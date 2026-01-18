@@ -879,16 +879,15 @@ export default function InsightsPage() {
 
   const lagPairs = useMemo(() => {
     const map = new Map<string, HistoryRow>();
-    const source =
-      pairsWindow === "all" ? historySorted : historySorted.slice(-Number(pairsWindow));
-    for (const r of source) map.set(r.day, r);
+    const base = historySorted;
+    for (const r of base) map.set(r.day, r);
 
     const scoreToSleep: Pair[] = [];
     const ozToSleep: Pair[] = [];
     const scoreToRecovery: Pair[] = [];
     const ozToRecovery: Pair[] = [];
 
-    for (const todayRow of source) {
+    for (const todayRow of base) {
       const dayToday = todayRow.day;
       const dayYesterday = addDaysISO(dayToday, -1);
       const yRow = map.get(dayYesterday);
@@ -930,7 +929,17 @@ export default function InsightsPage() {
       }
     }
 
-    return { scoreToSleep, ozToSleep, scoreToRecovery, ozToRecovery };
+    // After building all pairs, trim to the selected window length (logged-day pairs only)
+    const limit = pairsWindow === "all" ? Infinity : Number(pairsWindow);
+    const tail = (arr: Pair[]) =>
+      pairsWindow === "all" ? arr : arr.slice(-Math.min(limit, arr.length));
+
+    return {
+      scoreToSleep: tail(scoreToSleep),
+      ozToSleep: tail(ozToSleep),
+      scoreToRecovery: tail(scoreToRecovery),
+      ozToRecovery: tail(ozToRecovery),
+    };
   }, [historySorted, pairsWindow]);
 
   const lagCorr = useMemo(() => {
@@ -1150,37 +1159,7 @@ export default function InsightsPage() {
                   <p className="mt-2 text-xs text-zinc-500">Pairs: {lagPairs.scoreToSleep.length}</p>
                 </div>
 
-                <div className="rounded-2xl border border-zinc-200 p-4 dark:border-zinc-800">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="text-sm font-medium">Oz → Recovery (Next Day)</div>
-                    <CorrKPI value={lagCorr.oz_recovery} />
-                  </div>
-                  <ScatterPlot
-                    pairs={lagPairs.ozToRecovery}
-                    xLabel="Yesterday Oz"
-                    yLabel="Recovery (%)"
-                    xFmt={(v) => `${Math.round(v)}`}
-                    yFmt={(v) => `${Math.round(v)}`}
-                    height={260}
-                  />
-                  <p className="mt-2 text-xs text-zinc-500">Pairs: {lagPairs.ozToRecovery.length}</p>
-                </div>
-
-                <div className="rounded-2xl border border-zinc-200 p-4 dark:border-zinc-800">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="text-sm font-medium">Oz → Sleep (Next Day)</div>
-                    <CorrKPI value={lagCorr.oz_sleep} />
-                  </div>
-                  <ScatterPlot
-                    pairs={lagPairs.ozToSleep}
-                    xLabel="Yesterday Oz"
-                    yLabel="Sleep (h)"
-                    xFmt={(v) => `${Math.round(v)}`}
-                    yFmt={(v) => `${v.toFixed(1)}`}
-                    height={260}
-                  />
-                  <p className="mt-2 text-xs text-zinc-500">Pairs: {lagPairs.ozToSleep.length}</p>
-                </div>
+                {/* Removed Oz-based charts per request */}
 
                 <div className="rounded-2xl border border-zinc-200 p-4 dark:border-zinc-800">
                   <div className="flex items-center justify-between gap-2">
