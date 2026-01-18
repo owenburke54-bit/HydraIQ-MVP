@@ -449,24 +449,60 @@ function GoalCompletionBars({ points }: { points: DayPoint[] }) {
 }
 
 /** Tiny sparkline for 7-day moving average (visual trend) */
-function SparklineAvg({ values }: { values: number[] }) {
+function ThresholdLanes({
+  days,
+}: {
+  days: { day: string; value: number }[];
+}) {
   const w = 420;
-  const h = 56;
-  const pad = 8;
-  if (!values.length) return null;
-  const minY = Math.min(0, ...values);
-  const maxY = Math.max(100, ...values);
+  const h = 90;
+  const pad = 12;
+  const lanes = [
+    { y: 70, label: "<50", color: "#ef4444", test: (v: number) => v < 50 },
+    { y: 48, label: "50–74", color: "#f59e0b", test: (v: number) => v >= 50 && v < 75 },
+    { y: 26, label: "≥75", color: "#10b981", test: (v: number) => v >= 75 },
+  ];
+  if (!days.length) return null;
   const sx = (i: number) =>
-    pad + (i / Math.max(1, values.length - 1)) * (w - pad * 2);
-  const sy = (v: number) =>
-    pad + (1 - (v - minY) / Math.max(1e-9, maxY - minY)) * (h - pad * 2);
-  const d = values.map((v, i) => `${i ? "L" : "M"} ${sx(i)} ${sy(v)}`).join(" ");
+    pad + (i / Math.max(1, days.length - 1)) * (w - pad * 2);
   return (
     <svg viewBox={`0 0 ${w} ${h}`} className="w-full">
-      <path d={d} fill="none" stroke="#2563eb" strokeWidth="2" />
-      {values.map((v, i) => (
-        <circle key={i} cx={sx(i)} cy={sy(v)} r="2.5" fill="#2563eb" />
+      {lanes.map((ln, idx) => (
+        <g key={idx}>
+          <rect
+            x={pad}
+            y={ln.y - 8}
+            width={w - pad * 2}
+            height={16}
+            rx={8}
+            fill={idx === 0 ? "#fee2e2" : idx === 1 ? "#ffedd5" : "#dcfce7"}
+          />
+          <text x={pad - 6} y={ln.y + 3} textAnchor="end" fontSize="9" fill="#64748b">
+            {ln.label}
+          </text>
+        </g>
       ))}
+      {days.map((d, i) => {
+        const lane = lanes.find((ln) => ln.test(Number(d.value) || 0)) || lanes[0];
+        return (
+          <circle key={d.day} cx={sx(i)} cy={lane.y} r="4" fill={lane.color} opacity="0.9" />
+        );
+      })}
+      {/* highlight latest */}
+      {(() => {
+        const last = days[days.length - 1];
+        if (!last) return null;
+        const i = days.length - 1;
+        const lane = lanes.find((ln) => ln.test(Number(last.value) || 0)) || lanes[0];
+        return (
+          <>
+            <circle cx={sx(i)} cy={lane.y} r="7" fill={lane.color} opacity="0.2" />
+            <text x={sx(i) + 8} y={lane.y + 3} fontSize="10" fill="#475569">
+              {Math.round(Number(last.value) || 0)}
+            </text>
+          </>
+        );
+      })()}
     </svg>
   );
 }
@@ -482,7 +518,7 @@ function AdherenceGrid({
   const cols = 14;
   const cell = 14;
   return (
-    <div className="grid grid-cols-14 gap-1" style={{ gridTemplateColumns: `repeat(${cols}, ${cell}px)` }}>
+    <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${cols}, ${cell}px)` }}>
       {days.slice(-14).map((p) => {
         const ok = Number(p.value) >= threshold;
         return (
@@ -1310,43 +1346,20 @@ export default function InsightsPage() {
               <div className="mt-4 rounded-2xl border border-zinc-200 p-3 dark:border-zinc-800">
                 <div className="flex items-center justify-between">
                   <p className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
-                    7-day average
+                    Score lanes (14 days)
                   </p>
-                  {(() => {
-                    const vals = points14Display.slice(-14).map((p) => Number(p.score) || 0);
-                    const a = vals.slice(-7);
-                    const b = vals.slice(-14, -7);
-                    const avg = (arr: number[]) => (arr.length ? arr.reduce((s, v) => s + v, 0) / arr.length : 0);
-                    const now = Math.round(avg(a));
-                    const prev = Math.round(avg(b));
-                    const delta = now - prev;
-                    const sign = delta > 0 ? "+" : "";
-                    return (
-                      <span className={delta >= 0 ? "text-emerald-600 text-xs" : "text-rose-600 text-xs"}>
-                        {now} ({sign}{delta})
-                      </span>
-                    );
-                  })()}
                 </div>
                 <div className="mt-2">
-                  {(() => {
-                    const vals = points14Display.slice(-14).map((p) => Number(p.score) || 0);
-                    // build 7d moving average series over last 14 (first 7 may be partial)
-                    const avg7: number[] = [];
-                    for (let i = 0; i < vals.length; i++) {
-                      const slice = vals.slice(Math.max(0, i - 6), i + 1);
-                      const v = slice.reduce((s, x) => s + x, 0) / slice.length;
-                      avg7.push(v);
-                    }
-                    return <SparklineAvg values={avg7} />;
-                  })()}
+                  <ThresholdLanes
+                    days={points14Display.slice(-14).map((p) => ({ day: p.date, value: Number(p.score) || 0 }))}
+                  />
                 </div>
               </div>
 
               <div className="mt-3">
                 <div className="flex items-center justify-between">
                   <p className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
-                    Adherence (14 days) • Days ≥ {last14Stats.threshold ?? 75}:{" "}
+                    Consistency (14 days) • Days ≥ {last14Stats.threshold ?? 75}:{" "}
                     {(() => {
                       const cnt = points14Display.slice(-14).filter((p) => Number(p.score) >= (last14Stats.threshold ?? 75)).length;
                       return <span className="font-semibold">{cnt}/14</span>;
