@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Button from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
-import { addIntake, formatNYDate } from "../../lib/localStore";
+import { addIntake, formatNYDate, getIntakesByDateNY } from "../../lib/localStore";
 import type { BeverageType } from "../../lib/beverages";
 import { readSelectedDateFromLocation, isISODate } from "@/lib/selectedDate";
 
@@ -76,10 +76,25 @@ export default function LogPage() {
   const [error, setError] = useState<string | null>(null);
   const [supplements, setSupplements] = useState<SuppKey[]>([]);
   const [suppGrams, setSuppGrams] = useState<number | "">("");
+  const [lastIntakeOz, setLastIntakeOz] = useState<number | null>(null);
+  const [lastType, setLastType] = useState<DrinkType | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
 
   // When selected day changes, reset the default time to that day.
   useEffect(() => {
     setTime(defaultTimeForDate(selectedDate));
+    // pull last intake for quick-log
+    try {
+      const items = getIntakesByDateNY(selectedDate);
+      if (items.length > 0) {
+        const last = items[items.length - 1];
+        setLastIntakeOz(Math.round(last?.volume_ml * (1 / 29.5735)));
+        setLastType((last?.type as DrinkType) ?? null);
+      } else {
+        setLastIntakeOz(null);
+        setLastType(null);
+      }
+    } catch {}
   }, [selectedDate]);
 
   const quicks = [
@@ -115,6 +130,46 @@ export default function LogPage() {
       </div>
 
       <Card className="mt-4 space-y-4 p-4">
+        {/* Quick actions */}
+        {selectedDate === todayISO ? (
+          <div className="flex flex-wrap gap-2">
+            {lastIntakeOz ? (
+              <button
+                type="button"
+                className="rounded-full border border-zinc-200 px-3 py-1 text-xs shadow-sm dark:border-zinc-800"
+                onClick={async () => {
+                  setMessage(null);
+                  try {
+                    const ml = lastIntakeOz * 29.5735;
+                    const when = new Date(); // now
+                    addIntake(ml, (lastType ?? "water") as BeverageType, when);
+                    setMessage(`Logged ${lastIntakeOz} oz ${lastType ?? "water"}`);
+                    router.replace(`/?date=${selectedDate}`);
+                  } catch {
+                    setMessage("Could not log drink");
+                  }
+                }}
+              >
+                Log last again{lastType ? ` (${lastIntakeOz} oz ${lastType})` : ""}
+              </button>
+            ) : null}
+            <span className="ml-auto" />
+            {[8, 12, 16, 24].map((oz) => (
+              <button
+                key={oz}
+                type="button"
+                className="rounded-full border border-zinc-200 px-3 py-1 text-xs dark:border-zinc-800"
+                onClick={() => {
+                  setType("water");
+                  setVolume(oz);
+                  setTime(defaultTimeForDate(selectedDate));
+                }}
+              >
+                {oz} oz water
+              </button>
+            ))}
+          </div>
+        ) : null}
         <div>
           <label className="mb-2 block text-sm text-zinc-600 dark:text-zinc-300">Volume (oz)</label>
           <input
@@ -252,6 +307,7 @@ export default function LogPage() {
         </Button>
 
         {error ? <p className="pt-2 text-center text-sm text-red-600">{error}</p> : null}
+        {message ? <p className="pt-2 text-center text-sm text-green-600">{message}</p> : null}
       </Card>
     </div>
   );

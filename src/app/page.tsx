@@ -56,6 +56,7 @@ export default function Home() {
     flags: { workouts: false, creatine: false, env: false, whoop: false },
   });
   const [mounted, setMounted] = useState(false);
+  const [showScoreInfo, setShowScoreInfo] = useState(false);
 
   const isToday = selectedDate === todayISO;
 
@@ -434,6 +435,15 @@ export default function Home() {
       ) : null}
 
       <HydrationScoreCard score={state.score} />
+      <div className="mb-2 -mt-3 text-right">
+        <button
+          type="button"
+          className="text-xs text-zinc-500 underline dark:text-zinc-400"
+          onClick={() => setShowScoreInfo(true)}
+        >
+          How the score works
+        </button>
+      </div>
       <HydrationProgressBar actualMl={state.actual} targetMl={state.target} />
 
       {/* ✅ Recommendations: cleaned layout (Idea 8) + habit coaching (Idea 4) + risk triggers (Idea 7) */}
@@ -554,6 +564,32 @@ export default function Home() {
           </div>
         ) : null}
       </Card>
+
+      {/* Score info modal */}
+      {showScoreInfo ? (
+        <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/40 p-4 sm:items-center">
+          <div className="w-full max-w-[420px] rounded-2xl border border-zinc-200 bg-white p-4 shadow-xl animate-in dark:border-zinc-800 dark:bg-zinc-900">
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-sm font-semibold">Hydration Score</p>
+              <button
+                className="rounded-lg border px-2 py-1 text-xs dark:border-zinc-800"
+                onClick={() => setShowScoreInfo(false)}
+              >
+                Close
+              </button>
+            </div>
+            <ul className="space-y-2 text-sm text-zinc-700 dark:text-zinc-300">
+              <li>Built from today’s intake vs. your personalized target.</li>
+              <li>Beverage types are weighted (water/electrolytes count most; alcohol doesn’t add to score).</li>
+              <li>Timing matters: long dry gaps lower score; steady sips help.</li>
+              <li>Target adapts with workouts, creatine, and optional WHOOP sleep/recovery.</li>
+            </ul>
+            <div className="mt-3 rounded-xl bg-zinc-50 p-3 text-xs text-zinc-600 dark:bg-zinc-800/60 dark:text-zinc-300">
+              Today: target {toOz(state.target)} oz • actual {toOz(state.actual)} oz • score {Math.round(state.score)}
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <section className="mb-20">
         <h2 className="mb-2 text-lg font-semibold">{isToday ? "Today's intake" : "Intake"}</h2>
