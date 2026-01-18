@@ -8,6 +8,7 @@ import StartupMigration from "../components/StartupMigration";
 import TopBar from "../components/TopBar";
 import { Analytics } from "@vercel/analytics/react";
 import OnboardingGate from "../components/OnboardingGate";
+import SmartNotifications from "../components/SmartNotifications";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -48,6 +49,7 @@ export default function RootLayout({
         <RegisterSW />
         <StartupMigration />
         <OnboardingGate />
+        <SmartNotifications />
 
         {/* ✅ useSearchParams() consumers (DateSwitcher) must be inside Suspense */}
         <Suspense

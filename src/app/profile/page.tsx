@@ -19,6 +19,7 @@ export default function ProfilePage() {
   const [message, setMessage] = useState<string | null>(null);
   const [useEst, setUseEst] = useState<boolean>(true);
   const [unitsPref, setUnitsPref] = useState<"oz" | "ml">("oz");
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -50,9 +51,31 @@ export default function ProfilePage() {
         const s = JSON.parse(localStorage.getItem("hydra.settings") || "{}");
         if (s?.timezone === "auto") setUseEst(false);
         if (s?.units === "ml") setUnitsPref("ml");
+        const n = JSON.parse(localStorage.getItem("hydra.notifications") || "{}");
+        if (n?.enabled) setNotificationsEnabled(true);
       } catch {}
     })();
   }, []);
+
+  const toggleNotifications = async (checked: boolean) => {
+    if (checked && typeof window !== "undefined" && "Notification" in window) {
+      if (Notification.permission === "default") {
+        await Notification.requestPermission();
+      }
+      if (Notification.permission !== "granted") {
+        setNotificationsEnabled(false);
+        return;
+      }
+    }
+    setNotificationsEnabled(checked);
+    try {
+      const existing = JSON.parse(localStorage.getItem("hydra.notifications") || "{}");
+      localStorage.setItem(
+        "hydra.notifications",
+        JSON.stringify({ ...existing, enabled: checked })
+      );
+    } catch {}
+  };
 
   return (
     // Match Home spacing so content clears the fixed TopBar, without a huge gap.
@@ -163,6 +186,18 @@ export default function ProfilePage() {
               <option value="ml">Metric (ml)</option>
             </select>
           </div>
+
+          <div className="flex items-center justify-between py-1 text-sm">
+            <span>Smart notifications</span>
+            <input
+              type="checkbox"
+              checked={notificationsEnabled}
+              onChange={(e) => toggleNotifications(e.target.checked)}
+            />
+          </div>
+          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+            Uses browser notifications for optional hydration check-ins.
+          </p>
 
           <div className="mt-2 flex gap-2">
             <button
