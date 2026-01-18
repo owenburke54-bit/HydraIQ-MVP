@@ -88,16 +88,16 @@ export function calculateHydrationScore(inputs: ScoreInputs, mode: ScoreMode = "
 		}
 	} else {
 		// final mode: check historical intra-day gaps only
-		const sorted = [...inputs.intakes].sort(
-			(a, b) => a.timestamp.getTime() - b.timestamp.getTime()
-		);
-		for (let i = 1; i < sorted.length; i++) {
-			const diffHours =
-				(sorted[i].timestamp.getTime() - sorted[i - 1].timestamp.getTime()) /
-				(1000 * 60 * 60);
-			if (diffHours > 3) {
-				score -= 10;
-				break;
+	const sorted = [...inputs.intakes].sort(
+		(a, b) => a.timestamp.getTime() - b.timestamp.getTime()
+	);
+	for (let i = 1; i < sorted.length; i++) {
+		const diffHours =
+			(sorted[i].timestamp.getTime() - sorted[i - 1].timestamp.getTime()) /
+			(1000 * 60 * 60);
+		if (diffHours > 3) {
+			score -= 10;
+			break;
 			}
 		}
 	}

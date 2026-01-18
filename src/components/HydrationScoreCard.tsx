@@ -3,9 +3,9 @@ type Props = {
 };
 
 export default function HydrationScoreCard({ score }: Props) {
-  const status =
+	const status =
     score >= 80 ? { label: "Great", className: "text-emerald-600" } :
-    score >= 60 ? { label: "OK", className: "text-amber-600" } :
+		score >= 60 ? { label: "OK", className: "text-amber-600" } :
     { label: "Low", className: "text-rose-600" };
 
   const pct = Math.max(0, Math.min(100, score));
@@ -13,10 +13,10 @@ export default function HydrationScoreCard({ score }: Props) {
   const c = 2 * Math.PI * r;
   const dash = (pct / 100) * c;
 
-  return (
-    <section className="mb-4 rounded-2xl border border-zinc-200 bg-white p-4 shadow-md dark:border-zinc-800 dark:bg-zinc-900">
+	return (
+		<section className="mb-4 rounded-2xl border border-zinc-200 bg-white p-4 shadow-md dark:border-zinc-800 dark:bg-zinc-900">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-zinc-500">Today's Hydration Score</p>
+			<p className="text-sm text-zinc-500">Today's Hydration Score</p>
         <span className={`text-xs font-medium ${status.className}`}>{status.label}</span>
       </div>
       <div className="mt-2 flex items-center gap-4">
@@ -44,9 +44,9 @@ export default function HydrationScoreCard({ score }: Props) {
           <span className="text-4xl font-bold text-zinc-900 dark:text-zinc-50">{score}</span>
           <span className="text-xs text-zinc-500">out of 100</span>
         </div>
-      </div>
-    </section>
-  );
+			</div>
+		</section>
+	);
 }
 
 

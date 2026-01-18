@@ -46,14 +46,14 @@ type Pair = {
 };
 
 function lastNDatesNY(n: number): string[] {
-  const arr: string[] = [];
-  const now = new Date();
-  for (let i = 0; i < n; i++) {
-    const d = new Date(now);
-    d.setDate(now.getDate() - i);
-    arr.push(formatNYDate(d));
-  }
-  return arr;
+	const arr: string[] = [];
+	const now = new Date();
+	for (let i = 0; i < n; i++) {
+		const d = new Date(now);
+		d.setDate(now.getDate() - i);
+		arr.push(formatNYDate(d));
+	}
+	return arr;
 }
 
 function clamp(n: number, min: number, max: number) {
@@ -487,9 +487,9 @@ export default function InsightsPage() {
   const [historyLoading, setHistoryLoading] = useState(false);
 
   // Fetch WHOOP sleep/recovery for selected day (today tab logic)
-  useEffect(() => {
-    (async () => {
-      try {
+	useEffect(() => {
+		(async () => {
+			try {
         const cached = getWhoopMetrics(selectedDate);
         if (cached) {
           setWhoopSelected({
@@ -606,52 +606,58 @@ export default function InsightsPage() {
         const res = await fetch("/api/history?days=180", {
           credentials: "include",
         });
-        if (res.ok) {
-          const j = await res.json();
+				if (res.ok) {
+					const j = await res.json();
           setHistoryRows(Array.isArray(j) ? j : []);
-        }
-      } catch {}
+				}
+			} catch {}
       setHistoryLoading(false);
-    })();
+		})();
   }, [tab, historyRows.length]);
 
-  // 🔥 NEW: Backfill WHOOP cache for recent days when user opens History
-  // This fixes "Pairs: 0" when WHOOP metrics were never persisted locally for past dates.
+  // 🔥 Backfill WHOOP cache efficiently when opening History
+  // Fetch only missing days, with limited concurrency, and a tight window for speed.
+  const [whoopBackfillLoading, setWhoopBackfillLoading] = useState(false);
   useEffect(() => {
     if (tab !== "history") return;
-
     let cancelled = false;
 
     (async () => {
-      // 60 days is plenty for lag effects without hammering the API.
-      const dates = lastNDatesNY(60);
+      setWhoopBackfillLoading(true);
+      try {
+        // 34 days to match user's typical data window, faster than 60/90
+        const dates = lastNDatesNY(34);
+        // Gather only days missing sleep_performance (the metric used by Lag Effects)
+        const missing = dates.filter((d) => {
+          const m = getWhoopMetrics(d);
+          return !(m && m.sleep_performance != null);
+        });
+        if (!missing.length) return;
 
-      // Only fetch missing days to avoid wasting requests.
-      for (const d of dates) {
-        if (cancelled) return;
-
-        const cached = getWhoopMetrics(d);
-        // We need sleep_performance for lag effects; refetch if it's missing
-        if (
-          cached &&
-          cached.sleep_performance != null &&
-          (cached.sleep_hours != null || cached.recovery_score != null)
-        ) {
-          continue;
+        // Concurrency limiter: batches of 5
+        const chunkSize = 5;
+        for (let i = 0; i < missing.length; i += chunkSize) {
+          if (cancelled) return;
+          const batch = missing.slice(i, i + chunkSize);
+          await Promise.allSettled(
+            batch.map(async (d) => {
+              try {
+                const res = await fetch(`/api/whoop/metrics?date=${d}`, { credentials: "include" });
+                if (!res.ok) return;
+                const j = await res.json();
+                setWhoopMetrics(d, {
+                  sleep_hours: j.sleep_hours ?? null,
+                  sleep_performance: j.sleep_performance ?? null,
+                  recovery_score: j.recovery_score ?? null,
+                });
+              } catch {
+                // ignore per-day failures
+              }
+            })
+          );
         }
-
-        try {
-          const res = await fetch(`/api/whoop/metrics?date=${d}`, { credentials: "include" });
-          if (!res.ok) continue;
-          const j = await res.json();
-          setWhoopMetrics(d, {
-            sleep_hours: j.sleep_hours ?? null,
-            sleep_performance: j.sleep_performance ?? null,
-            recovery_score: j.recovery_score ?? null,
-          });
-        } catch {
-          // ignore per-day failures
-        }
+      } finally {
+        setWhoopBackfillLoading(false);
       }
     })();
 
@@ -662,40 +668,40 @@ export default function InsightsPage() {
 
   // Breakdown of selected day's target
   const dayBreakdown = useMemo(() => {
-    const prof = getProfile();
-    const weight = prof?.weight_kg ?? 0;
-    if (weight <= 0) return null;
+		const prof = getProfile();
+		const weight = prof?.weight_kg ?? 0;
+		if (weight <= 0) return null;
 
     const workouts = getWorkoutsByDateNY(selectedDate);
     const supplements = getSupplementsByDateNY(selectedDate);
 
-    const base = Math.round(weight * BASE_ML_PER_KG);
+		const base = Math.round(weight * BASE_ML_PER_KG);
 
-    const workoutLines = workouts.map((w) => {
-      const start = new Date(w.start_time);
-      const end = w.end_time ? new Date(w.end_time) : start;
-      const mins = Math.max(0, Math.round((end.getTime() - start.getTime()) / 60000));
+		const workoutLines = workouts.map((w) => {
+			const start = new Date(w.start_time);
+			const end = w.end_time ? new Date(w.end_time) : start;
+			const mins = Math.max(0, Math.round((end.getTime() - start.getTime()) / 60000));
       const strain =
         typeof w.intensity === "number" ? Math.max(0, Math.min(21, w.intensity)) : 5;
-      const intensityFactor = 0.5 + strain / 21;
-      const added = Math.round(mins * WORKOUT_ML_PER_MIN * intensityFactor);
-      const label = `${formatType(w.type)} • ${mins} min`;
-      return { label, added };
-    });
+			const intensityFactor = 0.5 + strain / 21;
+			const added = Math.round(mins * WORKOUT_ML_PER_MIN * intensityFactor);
+			const label = `${formatType(w.type)} • ${mins} min`;
+			return { label, added };
+		});
 
-    const creatineMl = supplements
-      .filter((s) => s.type === "creatine" && s.grams && s.grams > 0)
-      .reduce((sum, s) => sum + (s.grams || 0) * 70, 0);
+		const creatineMl = supplements
+			.filter((s) => s.type === "creatine" && s.grams && s.grams > 0)
+			.reduce((sum, s) => sum + (s.grams || 0) * 70, 0);
 
     const lines: { label: string; added: number }[] = [
       { label: "Base Need", added: base },
       ...workoutLines,
     ];
-    if (creatineMl > 0) lines.push({ label: "Creatine", added: Math.round(creatineMl) });
+		if (creatineMl > 0) lines.push({ label: "Creatine", added: Math.round(creatineMl) });
 
-    const baseTarget = lines.reduce((s, l) => s + l.added, 0);
+		const baseTarget = lines.reduce((s, l) => s + l.added, 0);
 
-    let modPct = 0;
+		let modPct = 0;
 
     if (whoopSelected?.sleepHours != null) {
       const h = whoopSelected.sleepHours;
@@ -707,22 +713,22 @@ export default function InsightsPage() {
         label: `Sleep (${h.toFixed(1)} h)`,
         added: Math.round(baseTarget * sAdj),
       });
-    }
+		}
 
     if (whoopSelected?.recovery != null) {
-      let rAdj = 0;
+			let rAdj = 0;
       const r = whoopSelected.recovery;
-      if (r < 33) rAdj = 0.05;
-      else if (r < 66) rAdj = 0.02;
-      modPct += rAdj;
+			if (r < 33) rAdj = 0.05;
+			else if (r < 66) rAdj = 0.02;
+			modPct += rAdj;
       lines.push({
         label: `Recovery (${Math.round(r)}%)`,
         added: Math.round(baseTarget * rAdj),
       });
-    }
+		}
 
-    const total = Math.round(baseTarget + baseTarget * modPct);
-    return { lines, total };
+		const total = Math.round(baseTarget + baseTarget * modPct);
+		return { lines, total };
   }, [selectedDate, whoopSelected]);
 
   const selectedTotals = useMemo(() => {
@@ -782,8 +788,8 @@ export default function InsightsPage() {
   const localHistorySorted = useMemo(() => {
     // Avoid heavy work unless the History tab is open
     if (tab !== "history") return [] as HistoryRow[];
-    const prof = getProfile();
-    const weight = prof?.weight_kg ?? 0;
+		const prof = getProfile();
+		const weight = prof?.weight_kg ?? 0;
     if (weight <= 0) return [] as HistoryRow[];
 
     // Build a smaller window to reduce work on mobile
@@ -799,14 +805,14 @@ export default function InsightsPage() {
       const baseMl = Math.round(weight * BASE_ML_PER_KG);
 
       const workoutMl = workouts.reduce((sum, w) => {
-        const start = new Date(w.start_time);
-        const end = w.end_time ? new Date(w.end_time) : start;
-        const mins = Math.max(0, Math.round((end.getTime() - start.getTime()) / 60000));
+					const start = new Date(w.start_time);
+					const end = w.end_time ? new Date(w.end_time) : start;
+					const mins = Math.max(0, Math.round((end.getTime() - start.getTime()) / 60000));
         const strain =
           typeof w.intensity === "number" ? Math.max(0, Math.min(21, w.intensity)) : 5;
         const intensityFactor = 0.5 + strain / 21;
-        return sum + mins * WORKOUT_ML_PER_MIN * intensityFactor;
-      }, 0);
+					return sum + mins * WORKOUT_ML_PER_MIN * intensityFactor;
+				}, 0);
 
       const creatineMl = supplements
         .filter((s) => s.type === "creatine" && s.grams && s.grams > 0)
@@ -838,22 +844,22 @@ export default function InsightsPage() {
         else if (recoveryPct < 66) rAdj = 0.02;
         modPct += rAdj;
         recoveryMl = baseTargetMl * rAdj;
-      }
+			}
 
       const targetMl = Math.round(baseTargetMl + baseTargetMl * modPct);
 
-      const score =
+			const score =
         targetMl > 0
-          ? calculateHydrationScore({
+					? calculateHydrationScore({
               targetMl,
               actualMl,
               intakes: intakes.map((i) => ({
                 timestamp: new Date(i.timestamp),
                 volumeMl: i.volume_ml,
               })),
-              workouts: [],
-            })
-          : 0;
+							workouts: [],
+					  })
+					: 0;
 
       const totalOz = actualMl / 29.5735;
 
@@ -869,7 +875,7 @@ export default function InsightsPage() {
         sleep_perf: sleepPerf,
         recovery_pct: recoveryPct,
       };
-    });
+		});
 
     // only keep days with some signal (intake logged OR whoop data OR workouts)
     const trimmed = rows.filter((r) => {
@@ -999,7 +1005,7 @@ export default function InsightsPage() {
     if (idx >= 0) {
       series = [...series];
       series[idx] = { ...series[idx], value: Number(selectedTotals.score) };
-    }
+		}
     return series;
   }, [historySorted, points14, today, selectedTotals.score]);
 
@@ -1024,18 +1030,18 @@ export default function InsightsPage() {
     for (let i = pts.length - 1; i >= 0; i--) {
       if (Number(pts[i].score) >= THRESH) streak++;
       else break;
-    }
+		}
 
     return { avg, best, streak, threshold: THRESH, pts };
   }, [points14Display]);
 
   const noHistoryAtAll = historySorted.length === 0 && !historyLoading;
 
-  return (
+	return (
     <div className="px-4 pb-4 pt-[calc(72px+env(safe-area-inset-top))]">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold">Insights</h1>
+			<h1 className="text-xl font-semibold">Insights</h1>
           <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
             Showing: <span className="font-medium">{selectedDate}</span>
             {isToday ? " (Today)" : ""}
@@ -1046,29 +1052,29 @@ export default function InsightsPage() {
           <TabPill label="Today" active={tab === "today"} onClick={() => startTransition(() => setTab("today"))} />
           <TabPill label="History" active={tab === "history"} onClick={() => startTransition(() => setTab("history"))} />
         </div>
-      </div>
+			</div>
 
       {tab === "today" ? (
         <>
-          <section className="mt-4">
+			<section className="mt-4">
             <Card className="flex items-center gap-4 p-4">
-              <div className="w-[160px] shrink-0">
-                <RadialGauge
+					<div className="w-[160px] shrink-0">
+						<RadialGauge
                   value={Math.min(1, selectedTotals.actual / Math.max(1, selectedTotals.target || 0))}
                   label={isToday ? "Today" : "Selected Day"}
-                />
-              </div>
+						/>
+					</div>
 
-              <div className="text-sm text-zinc-600 dark:text-zinc-400">
-                <p>
+					<div className="text-sm text-zinc-600 dark:text-zinc-400">
+						<p>
                   Target: <strong>{Math.round((selectedTotals.target || 0) / 29.5735)} oz</strong>
-                </p>
-                <p>
+						</p>
+						<p>
                   Actual: <strong>{Math.round((selectedTotals.actual || 0) / 29.5735)} oz</strong>
                 </p>
                 <p>
                   Score: <strong>{Math.round(selectedTotals.score)}</strong>
-                </p>
+						</p>
 
                 <div className="mt-2">
                   <button
@@ -1079,45 +1085,45 @@ export default function InsightsPage() {
                     Log Drink
                   </button>
                 </div>
-              </div>
-            </Card>
-          </section>
+					</div>
+				</Card>
+			</section>
 
           {dayBreakdown ? (
-            <section className="mt-4">
-              <Card className="p-4">
+				<section className="mt-4">
+					<Card className="p-4">
                 <p className="mb-2 text-sm text-zinc-600 dark:text-zinc-400">Target Drivers</p>
-                <ul className="space-y-1 text-sm">
+						<ul className="space-y-1 text-sm">
                   {dayBreakdown.lines.map((l, i) => (
-                    <li key={i} className="flex items-center justify-between">
-                      <span>{l.label}</span>
-                      <span className="tabular-nums">{Math.round(l.added / 29.5735)} oz</span>
-                    </li>
-                  ))}
-                </ul>
-                <div className="mt-2 flex items-center justify-between border-t pt-2 text-sm">
+								<li key={i} className="flex items-center justify-between">
+									<span>{l.label}</span>
+									<span className="tabular-nums">{Math.round(l.added / 29.5735)} oz</span>
+								</li>
+							))}
+						</ul>
+						<div className="mt-2 flex items-center justify-between border-t pt-2 text-sm">
                   <span className="font-medium">Total Target</span>
                   <span className="tabular-nums font-medium">
                     {Math.round(dayBreakdown.total / 29.5735)} oz
                   </span>
-                </div>
-              </Card>
-            </section>
-          ) : null}
+					</div>
+				</Card>
+			</section>
+			) : null}
 
-          <section className="mt-4 space-y-2">
-            {quick.map((q, i) => (
-              <Card key={i} className="p-4">
-                <p className="font-medium">{q.title}</p>
-                <p className="text-zinc-700 dark:text-zinc-300">{q.body}</p>
-              </Card>
-            ))}
-            {quick.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-zinc-300 p-6 text-center text-sm text-zinc-600 dark:border-zinc-800 dark:text-zinc-400">
-                Add a profile, log a drink or a workout to see insights.
-              </div>
-            ) : null}
-          </section>
+			<section className="mt-4 space-y-2">
+				{quick.map((q, i) => (
+					<Card key={i} className="p-4">
+						<p className="font-medium">{q.title}</p>
+						<p className="text-zinc-700 dark:text-zinc-300">{q.body}</p>
+					</Card>
+				))}
+				{quick.length === 0 ? (
+					<div className="rounded-2xl border border-dashed border-zinc-300 p-6 text-center text-sm text-zinc-600 dark:border-zinc-800 dark:text-zinc-400">
+						Add a profile, log a drink or a workout to see insights.
+					</div>
+				) : null}
+			</section>
         </>
       ) : (
         <>
@@ -1132,7 +1138,7 @@ export default function InsightsPage() {
                   <p className="mt-1 text-xs text-zinc-500">
                     Each point is your daily score (built from logged intake/workouts).
                   </p>
-                </div>
+		</div>
                 {historyLoading ? <span className="text-xs text-zinc-500">Loading…</span> : null}
               </div>
 
@@ -1161,9 +1167,13 @@ export default function InsightsPage() {
                     </button>
                   ))}
                 </div>
-                {noHistoryAtAll ? (
-                  <span className="text-xs text-zinc-500">No saved history yet.</span>
-                ) : null}
+                <div className="min-w-[120px] text-right">
+                  {whoopBackfillLoading ? (
+                    <span className="text-xs text-zinc-500">Optimizing data…</span>
+                  ) : noHistoryAtAll ? (
+                    <span className="text-xs text-zinc-500">No saved history yet.</span>
+                  ) : null}
+                </div>
               </div>
 
               <div className="mt-4 grid gap-4 md:grid-cols-2">
@@ -1223,8 +1233,8 @@ export default function InsightsPage() {
                   <div className="text-xs text-zinc-500">Avg</div>
                   <div className="mt-1 text-2xl font-semibold tabular-nums">
                     {last14Stats.avg == null ? "—" : Math.round(last14Stats.avg)}
-                  </div>
-                </div>
+			</div>
+		</div>
 
                 <div className="rounded-2xl border border-zinc-200 p-3 dark:border-zinc-800">
                   <div className="text-xs text-zinc-500">Best</div>
@@ -1264,5 +1274,5 @@ export default function InsightsPage() {
         </>
       )}
     </div>
-  );
+	);
 }
