@@ -54,7 +54,7 @@ export function BottomNav() {
   }, [dateParam]);
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-zinc-200 bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/70 dark:border-zinc-800 dark:bg-black/40 dark:backdrop-blur-xl dark:backdrop-saturate-150">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-zinc-200 bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/70 dark:border-zinc-800 dark:bg-black/40 dark:backdrop-blur-xl dark:backdrop-saturate-150 shadow-[var(--shadow-sm)]">
       <div className="mx-auto flex max-w-[420px] items-stretch justify-between px-4 pb-[calc(env(safe-area-inset-bottom))] pt-2">
         {items.map((item) => {
           const Icon = item.icon;

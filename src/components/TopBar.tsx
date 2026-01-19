@@ -4,7 +4,7 @@ import TopBarClient from "./TopBarClient";
 
 export default function TopBar() {
   return (
-    <header className="fixed top-0 left-0 right-0 z-40 glass bg-white/70 dark:bg-black/30 border-b border-zinc-200/50 dark:border-zinc-800/40">
+    <header className="fixed top-0 left-0 right-0 z-40 glass bg-white/70 dark:bg-black/30 border-b border-zinc-200/50 dark:border-zinc-800/40 shadow-[var(--shadow-sm)] backdrop-saturate-150">
       <div className="mx-auto max-w-[420px] px-4 pt-2 pb-3">
         {/* Top row */}
         <div className="flex h-8 items-center justify-between">

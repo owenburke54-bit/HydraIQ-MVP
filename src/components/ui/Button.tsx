@@ -10,7 +10,7 @@ const variantClasses: Record<NonNullable<ButtonProps["variant"]>, string> = {
 	primary:
 		"bg-blue-600 text-white hover:bg-blue-600/90 active:scale-[0.98] shadow-md",
 	outline:
-		"border border-zinc-200 bg-white text-zinc-900 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100",
+		"border border-zinc-200 bg-white text-zinc-900 shadow-sm hover:bg-zinc-50 hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100",
 	ghost:
 		"text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-900",
 	destructive:
