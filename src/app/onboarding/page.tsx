@@ -130,7 +130,7 @@ export default function OnboardingPage() {
                 doesn’t add).
               </li>
               <li>
-                <strong>Timing:</strong> Long dry gaps lower score; steady sips help.
+                <strong>Range:</strong> Going far above target can slightly reduce score.
               </li>
               <li>
                 <strong>Context:</strong> If connected, WHOOP sleep & recovery can gently adjust your target.

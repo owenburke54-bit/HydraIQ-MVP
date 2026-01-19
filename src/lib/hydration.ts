@@ -53,55 +53,6 @@ export function calculateHydrationScore(inputs: ScoreInputs, mode: ScoreMode = "
 		score -= (ratio - 1.3) * 20; // mild overhydration penalty
 	}
 
-	// 2) Late-night chug penalty (e.g., large volumes after 10pm)
-	const lateIntake = inputs.intakes
-		.filter((i) => {
-			const hour = i.timestamp.getHours();
-			return hour >= 22;
-		})
-		.reduce((sum, i) => sum + i.volumeMl, 0);
-	if (lateIntake > inputs.targetMl * 0.3) {
-		score -= 10;
-	}
-
-	// 3) Dry-gap handling
-	// - live: penalize ONLY the current ongoing gap since last intake (clears immediately when logging)
-	// - final: penalize long intra-day gaps (>3h) observed within the day's sequence
-	if (mode === "live") {
-		const now = Date.now();
-		if (inputs.intakes.length > 0) {
-			const last = inputs.intakes.reduce((a, b) =>
-				a.timestamp.getTime() > b.timestamp.getTime() ? a : b
-			).timestamp.getTime();
-			const hoursSince = (now - last) / (1000 * 60 * 60);
-			if (hoursSince > 3) {
-				const over = hoursSince - 3;
-				// ~ -1.5 points per hour after 3h, up to -15
-				score -= Math.min(15, over * 1.5);
-			}
-		} else {
-			// No intake yet today: begin a light penalty in the afternoon that grows through the day
-			const hour = new Date().getHours();
-			if (hour >= 12) {
-				score -= Math.min(10, (hour - 12) * 1.25);
-			}
-		}
-	} else {
-		// final mode: check historical intra-day gaps only
-	const sorted = [...inputs.intakes].sort(
-		(a, b) => a.timestamp.getTime() - b.timestamp.getTime()
-	);
-	for (let i = 1; i < sorted.length; i++) {
-		const diffHours =
-			(sorted[i].timestamp.getTime() - sorted[i - 1].timestamp.getTime()) /
-			(1000 * 60 * 60);
-		if (diffHours > 3) {
-			score -= 10;
-			break;
-			}
-		}
-	}
-
 	return Math.max(0, Math.min(100, Math.round(score)));
 }
 
