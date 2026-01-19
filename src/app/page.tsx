@@ -585,7 +585,7 @@ export default function Home() {
       {/* Score info modal */}
       {showScoreInfo ? (
         <div
-          className="fixed inset-0 z-[9999] flex items-start justify-center bg-black/60 px-4 pt-[calc(88px+env(safe-area-inset-top))] pb-6"
+          className="fixed inset-0 z-[9999] flex items-start justify-center bg-black/60 px-4 pt-[calc(200px+env(safe-area-inset-top))] pb-6"
           onClick={() => setShowScoreInfo(false)}
           role="dialog"
           aria-modal="true"
