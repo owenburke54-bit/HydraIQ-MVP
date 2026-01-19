@@ -127,7 +127,7 @@ export default function WorkoutsPage() {
           <h1 className="text-xl font-semibold">Workouts</h1>
           <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
             Showing: <span className="font-medium">{formatDisplayDate(selectedDate)}</span>
-            {isToday ? " (Today)" : ""}
+            {isToday ? " (Today)" : ""}.
           </p>
         </div>
       </div>
@@ -206,7 +206,7 @@ export default function WorkoutsPage() {
                       end: new Date(coerceDateTimeToSelectedDate(end, selectedDate)),
                       intensity,
                     });
-                    setMessage("Saved workout");
+                    setMessage("Workout saved.");
                     bump();
                   } catch (e: any) {
                     setError(e?.message || "Failed to save workout");
@@ -217,7 +217,7 @@ export default function WorkoutsPage() {
                 className="mt-3 w-full"
                 disabled={loading}
               >
-                {loading ? "Saving..." : "Save Workout"}
+                {loading ? "Saving..." : "Save workout"}
               </Button>
             </div>
           </div>
@@ -366,7 +366,7 @@ function WhoopControls({
           }
         }}
       >
-        Import WHOOP (today)
+        Import WHOOP (Today)
       </button>
       <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-400">
         Optional: connect WHOOP to import workouts and add sleep/recovery context.

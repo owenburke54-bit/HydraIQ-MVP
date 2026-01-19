@@ -1114,7 +1114,7 @@ export default function InsightsPage() {
 			<h1 className="text-xl font-semibold">Insights</h1>
           <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
             Showing: <span className="font-medium">{formatDisplayDate(selectedDate)}</span>
-            {isToday ? " (Today)" : ""}
+            {isToday ? " (Today)" : ""}.
           </p>
         </div>
 

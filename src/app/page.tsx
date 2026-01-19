@@ -434,8 +434,8 @@ export default function Home() {
     <div className="px-4 pb-4 pt-[calc(72px+env(safe-area-inset-top))]">
       {!isToday ? (
         <p className="mb-3 text-xs text-zinc-500 dark:text-zinc-400">
-          Viewing <span className="font-medium">{formatDisplayDate(selectedDate)}</span>. Use Log/Workouts to
-          add or edit for this day.
+          Viewing <span className="font-medium">{formatDisplayDate(selectedDate)}</span>. Use Log or Workouts
+          to add or edit for this day.
         </p>
       ) : null}
 
