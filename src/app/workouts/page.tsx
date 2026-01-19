@@ -13,6 +13,7 @@ import {
   setWhoopMetrics,
 } from "../../lib/localStore";
 import { readSelectedDateFromLocation, isISODate } from "@/lib/selectedDate";
+import { formatDisplayDate } from "@/lib/dateFormat";
 
 function pad2(n: number) {
   return String(n).padStart(2, "0");
@@ -125,7 +126,7 @@ export default function WorkoutsPage() {
         <div>
           <h1 className="text-xl font-semibold">Workouts</h1>
           <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-            Showing: <span className="font-medium">{selectedDate}</span>
+            Showing: <span className="font-medium">{formatDisplayDate(selectedDate)}</span>
             {isToday ? " (Today)" : ""}
           </p>
         </div>
@@ -225,7 +226,7 @@ export default function WorkoutsPage() {
 
       <div className="mt-6">
         <h2 className="mb-2 text-lg font-semibold">
-          {isToday ? "Today" : "Workouts"} • {selectedDate}
+          {isToday ? "Today" : "Workouts"} • {formatDisplayDate(selectedDate)}
         </h2>
 
         <div className="mb-3 flex flex-wrap gap-2">

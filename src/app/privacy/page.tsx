@@ -1,3 +1,5 @@
+import { formatDisplayDateFromDate } from "@/lib/dateFormat";
+
 export const metadata = {
   title: "Privacy Policy • HydraIQ",
   description: "How HydraIQ collects, uses, and protects your data, including optional WHOOP data.",
@@ -8,7 +10,9 @@ export default function PrivacyPage() {
     <main className="px-4 pb-6 pt-[calc(72px+env(safe-area-inset-top))]">
       <div className="mx-auto max-w-2xl">
         <h1 className="text-2xl font-semibold">HydraIQ Privacy Policy</h1>
-        <p className="mt-2 text-sm text-zinc-500">Last updated: {new Date().toISOString().slice(0, 10)}</p>
+        <p className="mt-2 text-sm text-zinc-500">
+          Last updated: {formatDisplayDateFromDate(new Date())}
+        </p>
 
         <section className="mt-6 space-y-2 text-sm text-zinc-700 dark:text-zinc-300">
           <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Overview</h2>

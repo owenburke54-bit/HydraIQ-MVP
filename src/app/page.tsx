@@ -16,6 +16,7 @@ import {
 } from "../lib/localStore";
 import { calculateHydrationScore, WORKOUT_ML_PER_MIN } from "../lib/hydration";
 import { useSelectedISODate } from "@/lib/selectedDate";
+import { formatDisplayDate } from "@/lib/dateFormat";
 
 const OZ_PER_ML = 1 / 29.5735;
 
@@ -433,8 +434,8 @@ export default function Home() {
     <div className="px-4 pb-4 pt-[calc(72px+env(safe-area-inset-top))]">
       {!isToday ? (
         <p className="mb-3 text-xs text-zinc-500 dark:text-zinc-400">
-          Viewing <span className="font-medium">{selectedDate}</span>. Use Log/Workouts to add or edit for
-          this day.
+          Viewing <span className="font-medium">{formatDisplayDate(selectedDate)}</span>. Use Log/Workouts to
+          add or edit for this day.
         </p>
       ) : null}
 
@@ -445,7 +446,7 @@ export default function Home() {
           className="text-xs text-zinc-500 underline dark:text-zinc-400"
           onClick={() => setShowScoreInfo(true)}
         >
-          How the score works
+          How the Score Works
         </button>
       </div>
       <HydrationProgressBar actualMl={state.actual} targetMl={state.target} />
@@ -616,7 +617,7 @@ export default function Home() {
       ) : null}
 
       <section className="mb-20">
-        <h2 className="mb-2 text-lg font-semibold">{isToday ? "Today's intake" : "Intake"}</h2>
+        <h2 className="mb-2 text-lg font-semibold">{isToday ? "Today's Intake" : "Intake"}</h2>
 
         {state.intakes.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-zinc-300 p-6 text-center text-sm text-zinc-600 dark:border-zinc-800 dark:text-zinc-400">

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { formatDisplayDate } from "./dateFormat";
 
 export function isoDate(d: Date) {
   // Local date -> YYYY-MM-DD
@@ -77,7 +78,7 @@ export function useSelectedISODate() {
   const label = useMemo(() => {
     if (selectedDate === todayISO) return "Today";
     if (selectedDate === addDays(todayISO, -1)) return "Yesterday";
-    return selectedDate;
+    return formatDisplayDate(selectedDate);
   }, [selectedDate, todayISO]);
 
   function go(nextISO: string) {

@@ -20,6 +20,7 @@ import {
   getEffectiveActualMl,
 } from "../../lib/localStore";
 import { useSelectedISODate, isISODate } from "@/lib/selectedDate";
+import { formatDisplayDate } from "@/lib/dateFormat";
 
 type DayPoint = { date: string; score: number; target: number; actual: number };
 
@@ -1112,7 +1113,7 @@ export default function InsightsPage() {
         <div>
 			<h1 className="text-xl font-semibold">Insights</h1>
           <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-            Showing: <span className="font-medium">{selectedDate}</span>
+            Showing: <span className="font-medium">{formatDisplayDate(selectedDate)}</span>
             {isToday ? " (Today)" : ""}
           </p>
         </div>
@@ -1289,7 +1290,7 @@ export default function InsightsPage() {
 
           <section className="mt-4">
             <Card className="p-4">
-              <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Key Takeways</p>
+              <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Key Takeaways</p>
               <p className="mt-1 text-sm text-zinc-700 dark:text-zinc-300">{lagSummary}</p>
             </Card>
           </section>

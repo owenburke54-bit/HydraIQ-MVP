@@ -167,7 +167,7 @@ export default function ProfilePage() {
           <p className="mb-2 text-sm font-medium">Settings</p>
 
           <div className="flex items-center justify-between py-1 text-sm">
-            <span>Use EST timezone</span>
+            <span>Use EST time zone</span>
             <input
               type="checkbox"
               checked={useEst}

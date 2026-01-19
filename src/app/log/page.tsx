@@ -7,6 +7,7 @@ import { Card } from "../../components/ui/Card";
 import { addIntake, formatNYDate, getIntakesByDateNY } from "../../lib/localStore";
 import type { BeverageType } from "../../lib/beverages";
 import { readSelectedDateFromLocation, isISODate } from "@/lib/selectedDate";
+import { formatDisplayDate } from "@/lib/dateFormat";
 
 type SuppKey =
   | "creatine"
@@ -123,7 +124,7 @@ export default function LogPage() {
         <div>
           <h1 className="text-xl font-semibold">Log Drink</h1>
           <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-            Saving to <span className="font-medium">{selectedDate}</span>
+            Saving to <span className="font-medium">{formatDisplayDate(selectedDate)}</span>
             {selectedDate === todayISO ? " (Today)" : ""}
           </p>
         </div>

@@ -119,7 +119,7 @@ export default function OnboardingPage() {
 
       {step === 1 && (
         <div className="space-y-5">
-          <h1 className="text-xl font-semibold">How your score works</h1>
+          <h1 className="text-xl font-semibold">How Your Score Works</h1>
           <div className="rounded-2xl border p-4 bg-white dark:border-zinc-800 dark:bg-zinc-900">
             <ol className="list-decimal space-y-3 pl-5 text-sm text-zinc-700 dark:text-zinc-300">
               <li>
