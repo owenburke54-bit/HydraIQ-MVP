@@ -449,6 +449,18 @@ export default function Home() {
         </button>
       </div>
       <HydrationProgressBar actualMl={state.actual} targetMl={state.target} />
+      {state.target > 0 && state.actual > state.target && state.score < 100 ? (
+        <div className="mb-3 mt-2 flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
+          <span>Score also reflects timing gaps and beverage weighting.</span>
+          <button
+            type="button"
+            className="underline"
+            onClick={() => setShowScoreInfo(true)}
+          >
+            Why not 100?
+          </button>
+        </div>
+      ) : null}
 
       {/* ✅ Recommendations: cleaned layout (Idea 8) + habit coaching (Idea 4) + risk triggers (Idea 7) */}
       <Card className="mb-4 p-4 shadow-sm">
