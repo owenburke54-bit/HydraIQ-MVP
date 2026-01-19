@@ -585,13 +585,13 @@ export default function Home() {
       {/* Score info modal */}
       {showScoreInfo ? (
         <div
-          className="fixed inset-0 z-[9999] grid min-h-screen place-items-center bg-black/60 p-0"
+          className="fixed inset-0 z-[9999] flex items-start justify-center bg-black/60 px-4 pt-[calc(72px+env(safe-area-inset-top))] pb-6"
           onClick={() => setShowScoreInfo(false)}
           role="dialog"
           aria-modal="true"
         >
           <div
-            className="mx-4 w-full max-w-[420px] rounded-2xl border border-zinc-200 bg-white p-4 shadow-xl animate-in dark:border-zinc-800 dark:bg-zinc-900"
+            className="w-full max-w-[420px] rounded-2xl border border-zinc-200 bg-white p-4 shadow-xl animate-in dark:border-zinc-800 dark:bg-zinc-900"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-2 flex items-center justify-between">
@@ -603,12 +603,37 @@ export default function Home() {
                 Close
               </button>
             </div>
-            <ul className="space-y-2 text-sm text-zinc-700 dark:text-zinc-300">
-              <li>Built from today’s intake vs. your personalized target.</li>
-              <li>Beverage types are weighted (water/electrolytes count most; alcohol doesn’t add).</li>
-              <li>Going far above target can slightly reduce score.</li>
-              <li>Target adapts with workouts, creatine, and (if connected) WHOOP sleep/recovery.</li>
-            </ul>
+            <div className="space-y-3 text-sm text-zinc-700 dark:text-zinc-300">
+              <p>
+                Your score compares <strong>effective intake</strong> to your <strong>daily target</strong>.
+              </p>
+              <ul className="space-y-2">
+                <li>
+                  <strong>Target intake:</strong> based on body weight (≈35 ml/kg), plus workouts
+                  (~8 ml/min × intensity), plus creatine (70 ml per gram), with optional WHOOP adjustments.
+                </li>
+                <li>
+                  <strong>Effective intake:</strong> drinks are weighted by type. Alcohol does not add to
+                  score, and electrolytes can slightly boost effective intake.
+                </li>
+                <li>
+                  <strong>Score range:</strong> reaching target lifts score; going far above target can
+                  slightly reduce it.
+                </li>
+              </ul>
+              <div className="rounded-xl bg-zinc-50 p-3 text-xs text-zinc-600 dark:bg-zinc-800/60 dark:text-zinc-300">
+                <div className="font-semibold text-zinc-700 dark:text-zinc-200">Drink weights (approx.)</div>
+                <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1">
+                  <span>Water 1.00</span>
+                  <span>Electrolyte 1.15</span>
+                  <span>Milk 1.50</span>
+                  <span>Juice 1.10</span>
+                  <span>Coffee 0.95</span>
+                  <span>Soda 0.90</span>
+                  <span>Beer/Wine/Cocktail 0.00</span>
+                </div>
+              </div>
+            </div>
             <div className="mt-3 rounded-xl bg-zinc-50 p-3 text-xs text-zinc-600 dark:bg-zinc-800/60 dark:text-zinc-300">
               Today: target {toOz(state.target)} oz • actual {toOz(state.actual)} oz • score {Math.round(state.score)}
             </div>
