@@ -16,7 +16,7 @@ export default function HydrationScoreCard({ score }: Props) {
   const dash = (pct / 100) * c;
 
 	return (
-		<section className="mb-4 rounded-2xl border border-zinc-200 bg-white p-4 shadow-md dark:border-zinc-800 dark:bg-zinc-900">
+		<section className="mb-4 rounded-2xl border border-zinc-200/70 bg-white/95 p-4 shadow-[var(--shadow-md)] ring-1 ring-white/70 dark:border-zinc-800/70 dark:bg-zinc-900/85 dark:ring-zinc-900/40">
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm font-semibold text-zinc-500">Today's Hydration Score</p>

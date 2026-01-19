@@ -1152,7 +1152,7 @@ export default function InsightsPage() {
                     onClick={() => router.push(`/log?date=${selectedDate}`)}
                     className="rounded-xl border px-3 py-2 text-sm hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-900"
                   >
-                    Log Drink
+                    Log drink
                   </button>
                 </div>
 					</div>

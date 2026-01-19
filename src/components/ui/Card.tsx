@@ -15,7 +15,8 @@ export function Card({
 	return (
 		<div
 			className={twMerge(
-				"rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900",
+				"rounded-2xl border border-zinc-200/70 bg-white/95 dark:border-zinc-800/70 dark:bg-zinc-900/85",
+				"ring-1 ring-white/70 dark:ring-zinc-900/40",
 				elevated ? "shadow-[var(--shadow-md)]" : "shadow-[var(--shadow-sm)]",
 				interactive ? "transition-shadow hover:shadow-[var(--shadow-md)]" : "",
 				className
@@ -49,7 +50,7 @@ export function CardDescription({
 	...props
 }: PropsWithChildren<HTMLAttributes<HTMLParagraphElement>>) {
 	return (
-		<p className={twMerge("text-sm text-zinc-500", className)} {...props} />
+		<p className={twMerge("text-sm text-zinc-500 dark:text-zinc-400", className)} {...props} />
 	);
 }
 

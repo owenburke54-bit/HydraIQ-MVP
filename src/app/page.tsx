@@ -446,7 +446,7 @@ export default function Home() {
           className="text-xs text-zinc-500 underline dark:text-zinc-400"
           onClick={() => setShowScoreInfo(true)}
         >
-          How the Score Works
+          How the score works
         </button>
       </div>
       <HydrationProgressBar actualMl={state.actual} targetMl={state.target} />
