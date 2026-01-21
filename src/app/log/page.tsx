@@ -4,10 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Button from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
-import { addIntake, formatNYDate, getIntakesByDateNY } from "../../lib/localStore";
+import { addIntake, formatNYDate } from "../../lib/localStore";
 import type { BeverageType } from "../../lib/beverages";
 import { readSelectedDateFromLocation, isISODate } from "@/lib/selectedDate";
 import { formatDisplayDate } from "@/lib/dateFormat";
+import { useDailyHydrationSnapshot } from "@/components/HydrationSnapshotProvider";
 
 type SuppKey =
   | "creatine"
@@ -53,6 +54,7 @@ export default function LogPage() {
 
   // ✅ Date is determined ONLY by URL (TopBar)
   const [selectedDate, setSelectedDate] = useState<string>(todayISO);
+  const snapshot = useDailyHydrationSnapshot(selectedDate);
 
   // ✅ Sync selectedDate from URL on mount, back/forward, AND hydra:datechange
   useEffect(() => {
@@ -86,7 +88,7 @@ export default function LogPage() {
     setTime(defaultTimeForDate(selectedDate));
     // pull last intake for quick-log
     try {
-      const items = getIntakesByDateNY(selectedDate);
+      const items = snapshot?.intakes ?? [];
       if (items.length > 0) {
         const last = items[items.length - 1];
         setLastIntakeOz(Math.round(last?.volume_ml * (1 / 29.5735)));
@@ -96,7 +98,7 @@ export default function LogPage() {
         setLastType(null);
       }
     } catch {}
-  }, [selectedDate]);
+  }, [selectedDate, snapshot]);
 
   const quicks = [
     { label: "8 oz", oz: 8 },

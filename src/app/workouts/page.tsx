@@ -5,7 +5,6 @@ import Button from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import {
   addWorkout,
-  getWorkoutsByDateNY,
   formatNYDate,
   updateWorkout,
   deleteWorkout,
@@ -14,6 +13,7 @@ import {
 } from "../../lib/localStore";
 import { readSelectedDateFromLocation, isISODate } from "@/lib/selectedDate";
 import { formatDisplayDate } from "@/lib/dateFormat";
+import { useDailyHydrationSnapshot } from "@/components/HydrationSnapshotProvider";
 
 function pad2(n: number) {
   return String(n).padStart(2, "0");
@@ -61,9 +61,7 @@ export default function WorkoutsPage() {
   const todayISO = useMemo(() => formatNYDate(new Date()), []);
   const [selectedDate, setSelectedDate] = useState<string>(todayISO);
 
-  // Used to force refresh of useMemo after mutations (instead of full reloads)
-  const [refreshKey, setRefreshKey] = useState(0);
-  const bump = () => setRefreshKey((k) => k + 1);
+  const snapshot = useDailyHydrationSnapshot(selectedDate);
 
   // ✅ No useSearchParams() (avoids /_not-found Suspense build failures)
   // ✅ Sync selectedDate from URL on mount, back/forward, AND our custom date-change event.
@@ -104,10 +102,7 @@ export default function WorkoutsPage() {
     setError(null);
   }, [selectedDate]);
 
-  const workoutsForDay = useMemo(
-    () => getWorkoutsByDateNY(selectedDate),
-    [selectedDate, refreshKey]
-  );
+  const workoutsForDay = useMemo(() => snapshot?.workouts ?? [], [snapshot]);
 
   const workoutOptions = [
     "Soccer",
@@ -207,7 +202,6 @@ export default function WorkoutsPage() {
                       intensity,
                     });
                     setMessage("Workout saved.");
-                    bump();
                   } catch (e: any) {
                     setError(e?.message || "Failed to save workout");
                   } finally {

@@ -4,19 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 import HydrationScoreCard from "../components/HydrationScoreCard";
 import HydrationProgressBar from "../components/HydrationProgressBar";
 import { Card } from "../components/ui/Card";
-import {
-  getIntakesByDateNY,
-  getProfile,
-  formatNYDate,
-  getWorkoutsByDateNY,
-  getSupplementsByDateNY,
-  getWhoopMetrics,
-  setWhoopMetrics,
-  getEffectiveActualMl,
-} from "../lib/localStore";
-import { calculateHydrationScore, WORKOUT_ML_PER_MIN } from "../lib/hydration";
 import { useSelectedISODate } from "@/lib/selectedDate";
 import { formatDisplayDate } from "@/lib/dateFormat";
+import {
+  useDailyHydrationSnapshot,
+  useHydrationSnapshotActions,
+} from "@/components/HydrationSnapshotProvider";
 
 const OZ_PER_ML = 1 / 29.5735;
 
@@ -49,15 +42,10 @@ type RiskTip = {
 export default function Home() {
   const { todayISO, selectedDate } = useSelectedISODate();
 
-  const [state, setState] = useState({
-    target: 0,
-    actual: 0,
-    score: 0,
-    intakes: [] as { id: string; timestamp: string; volume_ml: number; type: string }[],
-    flags: { workouts: false, creatine: false, env: false, whoop: false },
-  });
   const [mounted, setMounted] = useState(false);
   const [showScoreInfo, setShowScoreInfo] = useState(false);
+  const snapshot = useDailyHydrationSnapshot(selectedDate);
+  const { requestWhoopMetrics } = useHydrationSnapshotActions();
 
   const isToday = selectedDate === todayISO;
 
@@ -65,187 +53,21 @@ export default function Home() {
     setMounted(true);
   }, []);
 
-  // Recalculate score periodically for the *selected* day, but pause when hidden and skip when not Today.
   useEffect(() => {
-    let id: number | null = null;
-    const tick = () => {
-      // Skip background ticking for non-today dates
-      if (!isToday) return;
-      const intakes = getIntakesByDateNY(selectedDate);
-      const actual = getEffectiveActualMl(selectedDate, intakes);
+    if (!isToday) return;
+    requestWhoopMetrics(selectedDate);
+  }, [selectedDate, isToday, requestWhoopMetrics]);
 
-      setState((prev) => {
-        const score =
-          prev.target > 0
-            ? calculateHydrationScore(
-                {
-                  targetMl: prev.target,
-                  actualMl: actual,
-                  intakes: intakes.map((i) => ({
-                    timestamp: new Date(i.timestamp),
-                    volumeMl: i.volume_ml,
-                  })),
-                  workouts: [],
-                },
-                "live"
-              )
-            : 0;
-
-        return { ...prev, intakes, actual, score };
-      });
-    };
-
-    const start = () => {
-      if (!isToday || document.hidden) return;
-      tick();
-      id = window.setInterval(tick, 60 * 1000);
-    };
-    const stop = () => {
-      if (id != null) window.clearInterval(id);
-      id = null;
-    };
-    const onVis = () => {
-      stop();
-      if (!document.hidden) start();
-    };
-
-    start();
-    document.addEventListener("visibilitychange", onVis);
-    return () => {
-      stop();
-      document.removeEventListener("visibilitychange", onVis);
-    };
-  }, [selectedDate, isToday]);
-
-  // Compute target + flags for selected day
-  useEffect(() => {
-    const date = selectedDate;
-    const profile = getProfile();
-
-    const intakes = getIntakesByDateNY(date);
-    const workouts = getWorkoutsByDateNY(date);
-    const actual = getEffectiveActualMl(date, intakes);
-
-    if (!profile) {
-      setState({
-        target: 0,
-        actual,
-        score: 0,
-        intakes,
-        flags: { workouts: workouts.length > 0, creatine: false, env: false, whoop: false },
-      });
-      return;
-    }
-
-    const weight = profile.weight_kg ?? 0;
-
-    // Base target + workout adjustment (strain-aware)
-    const base = weight > 0 ? weight * 35 : 0;
-    const workoutAdjustment = workouts.reduce((sum, w) => {
-      const start = new Date(w.start_time);
-      const end = w.end_time ? new Date(w.end_time) : start;
-      const durationMin = Math.max(0, Math.round((end.getTime() - start.getTime()) / 60000));
-      const strain = typeof w.intensity === "number" ? Math.max(0, Math.min(21, w.intensity)) : 5;
-      const intensityFactor = 0.5 + strain / 21; // ~0.5–1.5x
-      return sum + durationMin * WORKOUT_ML_PER_MIN * intensityFactor;
-    }, 0);
-
-    // Creatine adjustment (70 ml per gram)
-    const supplements = getSupplementsByDateNY(date);
-    const creatineMl = supplements
-      .filter((s) => s.type === "creatine" && s.grams && s.grams > 0)
-      .reduce((sum, s) => sum + (s.grams || 0) * 70, 0);
-
-    let target = Math.round(base + workoutAdjustment + creatineMl);
-    let usedWhoop = false;
-
-    (async () => {
-      try {
-        const cached = getWhoopMetrics(date);
-
-        const apply = (j: any) => {
-          let modPct = 0;
-
-          if (typeof j.sleep_hours === "number") {
-            const h = j.sleep_hours;
-            if (h < 7.5) modPct += Math.max(0, 7.5 - h) * 0.03;
-            else if (h > 8.5) modPct -= Math.max(0, h - 8.5) * 0.02;
-          }
-
-          if (typeof j.recovery_score === "number") {
-            const r = j.recovery_score;
-            if (r < 33) modPct += 0.05;
-            else if (r < 66) modPct += 0.02;
-          }
-
-          target = Math.round(target * (1 + modPct));
-        };
-
-        if (cached) {
-          apply(cached);
-          usedWhoop = true;
-        }
-
-        // Only call server for WHOOP on Today
-        if (isToday) {
-          // Throttle WHOOP network fetch to once per 10 minutes
-          const TTL_MS = 10 * 60 * 1000;
-          const fresh =
-            cached &&
-            cached.fetched_at &&
-            Date.now() - new Date(cached.fetched_at).getTime() < TTL_MS;
-          const res = fresh
-            ? null
-            : await fetch(`/api/whoop/metrics?date=${date}`, { credentials: "include" });
-          if (res && res.ok) {
-            const j = await res.json();
-            setWhoopMetrics(date, {
-              sleep_hours: j.sleep_hours ?? null,
-              recovery_score: j.recovery_score ?? null,
-            });
-            apply(j);
-            usedWhoop = true;
-          }
-        }
-      } catch {}
-
-      const score =
-        target > 0
-          ? calculateHydrationScore(
-              {
-                targetMl: target,
-                actualMl: actual,
-                intakes: intakes.map((i) => ({
-                  timestamp: new Date(i.timestamp),
-                  volumeMl: i.volume_ml,
-                })),
-                workouts: [],
-              },
-              isToday ? "live" : "final"
-            )
-          : 0;
-
-      setState({
-        target,
-        actual,
-        score,
-        intakes,
-        flags: {
-          workouts: workouts.length > 0,
-          creatine: creatineMl > 0,
-          env: false,
-          whoop: usedWhoop,
-        },
-      });
-    })();
-  }, [selectedDate, isToday]);
+  const targetMl = snapshot?.targetMl ?? 0;
+  const actualMl = snapshot?.actualMl ?? 0;
+  const score = snapshot?.score ?? 0;
+  const intakes = snapshot?.intakes ?? [];
+  const flags = snapshot?.flags ?? { workouts: false, creatine: false, env: false, whoop: false };
+  const workouts = snapshot?.workouts ?? [];
+  const whoop = snapshot?.whoop ?? null;
 
   // --- Recommendations (ideas 4, 7, 8) ---
   const rec = useMemo(() => {
-    const flags = state.flags || { workouts: false, creatine: false, env: false, whoop: false };
-
-    const targetMl = state.target || 0;
-    const actualMl = state.actual || 0;
 
     const targetOz = toOz(targetMl);
     const actualOz = toOz(actualMl);
@@ -260,7 +82,7 @@ export default function Home() {
 
     try {
       // Bucket today/selected-day intakes by time of day (local device hour)
-      const ints = [...state.intakes].sort(
+      const ints = [...intakes].sort(
         (a, b) => +new Date(a.timestamp) - +new Date(b.timestamp)
       );
       const totalMl = ints.reduce((s, i) => s + i.volume_ml, 0);
@@ -363,7 +185,6 @@ export default function Home() {
       if (!mounted) return null;
 
       // Pull cached WHOOP for today (we store it in localStore).
-      const whoop = getWhoopMetrics(selectedDate);
       const recovery = whoop?.recovery_score ?? null;
 
       const now = new Date();
@@ -373,7 +194,7 @@ export default function Home() {
       // If behind + trained + low recovery + late, surface a stronger callout.
       const behind = deficitOz >= 16; // ~>= 16oz behind
       const trained = Boolean(flags.workouts);
-      const workoutCount = getWorkoutsByDateNY(selectedDate).length;
+      const workoutCount = workouts.length;
       const lowRecovery = typeof recovery === "number" && recovery < 40;
 
       if (behind && (trained || lowRecovery) && late) {
@@ -427,7 +248,7 @@ export default function Home() {
       nextSipOz,
       risk,
     };
-  }, [state, selectedDate, isToday, mounted]);
+  }, [actualMl, flags, intakes, isToday, mounted, selectedDate, targetMl, whoop, workouts.length]);
 
 
   return (
@@ -439,7 +260,7 @@ export default function Home() {
         </p>
       ) : null}
 
-      <HydrationScoreCard score={state.score} />
+      <HydrationScoreCard score={score} />
       <div className="mb-2 -mt-3 text-right">
         <button
           type="button"
@@ -449,8 +270,8 @@ export default function Home() {
           How the score works
         </button>
       </div>
-      <HydrationProgressBar actualMl={state.actual} targetMl={state.target} />
-      {state.target > 0 && state.actual > state.target && state.score < 100 ? (
+      <HydrationProgressBar actualMl={actualMl} targetMl={targetMl} />
+      {targetMl > 0 && actualMl > targetMl && score < 100 ? (
         <div className="mb-3 mt-2 flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
           <span>Score reflects effective intake vs target; large overshoots can reduce it.</span>
           <button
@@ -497,7 +318,7 @@ export default function Home() {
 
         {/* Primary message + quick actions */}
         <div className="mt-3 rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-          {state.target <= 0 ? (
+          {targetMl <= 0 ? (
             <p className="text-sm text-zinc-700 dark:text-zinc-300">
               Add your profile (weight) to generate a personalized daily target.
             </p>
@@ -635,7 +456,7 @@ export default function Home() {
               </div>
             </div>
             <div className="mt-3 rounded-xl bg-zinc-50 p-3 text-xs text-zinc-600 dark:bg-zinc-800/60 dark:text-zinc-300">
-              Today: target {toOz(state.target)} oz • actual {toOz(state.actual)} oz • score {Math.round(state.score)}
+              Today: target {toOz(targetMl)} oz • actual {toOz(actualMl)} oz • score {Math.round(score)}
             </div>
           </div>
         </div>
@@ -644,13 +465,13 @@ export default function Home() {
       <section className="mb-20">
         <h2 className="mb-2 text-lg font-semibold">{isToday ? "Today's Intake" : "Intake"}</h2>
 
-        {state.intakes.length === 0 ? (
+        {intakes.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-zinc-300 p-6 text-center text-sm text-zinc-600 dark:border-zinc-800 dark:text-zinc-400">
             No drinks logged for this day.
           </div>
         ) : (
           <ul className="divide-y divide-zinc-200 overflow-hidden rounded-2xl border border-zinc-200 bg-white dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-900">
-            {state.intakes.map((i) => {
+            {intakes.map((i) => {
               const d = new Date(i.timestamp);
               const hhmm = fmtTimeNY(d);
               return (

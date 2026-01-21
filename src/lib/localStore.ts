@@ -13,7 +13,7 @@
 import { WORKOUT_ML_PER_MIN } from "./hydration";
 import { BeverageType, hydrationFactor } from "./beverages";
 
-type Profile = {
+export type Profile = {
   name?: string;
   sex?: "male" | "female" | "other";
   height_cm?: number | null;
@@ -21,14 +21,14 @@ type Profile = {
   units?: "metric" | "imperial";
 };
 
-type Intake = {
+export type Intake = {
   id: string;
   timestamp: string; // ISO
   volume_ml: number;
   type: BeverageType;
 };
 
-type Workout = {
+export type Workout = {
   id: string;
   start_time: string; // ISO
   end_time?: string | null;
@@ -37,7 +37,7 @@ type Workout = {
   intensity?: number | null;
 };
 
-type SupplementEvent = {
+export type SupplementEvent = {
   id: string;
   timestamp: string; // ISO
   type:
@@ -50,7 +50,7 @@ type SupplementEvent = {
   grams?: number | null;
 };
 
-type Settings = {
+export type Settings = {
   timezone?: "est" | "auto";
   units?: "oz" | "ml";
   environment?: "normal" | "warm" | "hot";
@@ -123,12 +123,52 @@ function safeId(): string {
   }
 }
 
+type HydraChangeDetail = {
+  date?: string;
+  dates?: string[];
+  all?: boolean;
+  reason?: string;
+};
+
+const HYDRA_VERSION_KEY = "hydra.version";
+
+export function getHydraVersion(): number {
+  if (typeof window === "undefined") return 0;
+  try {
+    const raw = window.localStorage.getItem(HYDRA_VERSION_KEY);
+    const v = raw ? Number(raw) : 0;
+    return Number.isFinite(v) ? v : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function bumpHydraVersion(): number {
+  if (typeof window === "undefined") return 0;
+  try {
+    const next = getHydraVersion() + 1;
+    window.localStorage.setItem(HYDRA_VERSION_KEY, String(next));
+    return next;
+  } catch {
+    return 0;
+  }
+}
+
+function emitHydraChange(detail: HydraChangeDetail) {
+  if (typeof window === "undefined") return;
+  try {
+    window.dispatchEvent(new CustomEvent("hydra:datachange", { detail }));
+  } catch {}
+}
+
 export function getProfile(): Profile | null {
   return readJSON<Profile | null>("hydra.profile", null);
 }
 
 export function saveProfile(p: Profile) {
   writeJSON("hydra.profile", p);
+  bumpHydraVersion();
+  emitHydraChange({ all: true, reason: "profile" });
 }
 
 export function getSettings(): Settings {
@@ -145,6 +185,8 @@ export function getSettings(): Settings {
 
 export function setSettings(next: Settings) {
   writeJSON("hydra.settings", next);
+  bumpHydraVersion();
+  emitHydraChange({ all: true, reason: "settings" });
 }
 
 export function addIntake(volumeMl: number, type: Intake["type"], ts: Date) {
@@ -161,6 +203,8 @@ export function addIntake(volumeMl: number, type: Intake["type"], ts: Date) {
   try {
     const dateNY = formatNYDate(ts);
     recomputeSummary(dateNY);
+    bumpHydraVersion();
+    emitHydraChange({ date: dateNY, reason: "intake" });
   } catch {}
 }
 
@@ -240,7 +284,10 @@ export function addWorkout(data: {
   });
 
   writeJSON("hydra.workouts", list);
-  recomputeSummary(formatNYDate(data.start));
+  const dateNY = formatNYDate(data.start);
+  recomputeSummary(dateNY);
+  bumpHydraVersion();
+  emitHydraChange({ date: dateNY, reason: "workout" });
 }
 
 export function getWorkoutsByDateNY(date: string): Workout[] {
@@ -260,8 +307,13 @@ export function updateWorkout(id: string, patch: Partial<Workout>) {
 
   // Recompute summaries for old and new dates if changed
   try {
-    recomputeSummary(formatNYDate(new Date(old.start_time)));
-    recomputeSummary(formatNYDate(new Date(next.start_time)));
+    const oldDate = formatNYDate(new Date(old.start_time));
+    const nextDate = formatNYDate(new Date(next.start_time));
+    recomputeSummary(oldDate);
+    recomputeSummary(nextDate);
+    bumpHydraVersion();
+    if (oldDate === nextDate) emitHydraChange({ date: oldDate, reason: "workout" });
+    else emitHydraChange({ dates: [oldDate, nextDate], reason: "workout" });
   } catch {}
 }
 
@@ -275,7 +327,10 @@ export function deleteWorkout(id: string) {
   writeJSON("hydra.workouts", list);
 
   try {
-    recomputeSummary(formatNYDate(new Date(old.start_time)));
+    const dateNY = formatNYDate(new Date(old.start_time));
+    recomputeSummary(dateNY);
+    bumpHydraVersion();
+    emitHydraChange({ date: dateNY, reason: "workout" });
   } catch {}
 }
 
@@ -298,7 +353,10 @@ export function addSupplements(events: {
 
   // Recompute summary for this date
   try {
-    recomputeSummary(formatNYDate(events.timestamp));
+    const dateNY = formatNYDate(events.timestamp);
+    recomputeSummary(dateNY);
+    bumpHydraVersion();
+    emitHydraChange({ date: dateNY, reason: "supplement" });
   } catch {}
 }
 
@@ -325,6 +383,8 @@ export function clearAllLocalData() {
   window.localStorage.removeItem("hydra.supplements");
   window.localStorage.removeItem("hydra.whoop");
   window.localStorage.removeItem("hydra.settings");
+  bumpHydraVersion();
+  emitHydraChange({ all: true, reason: "clear" });
 }
 
 // --- Daily summary helpers (for multi-day calculations) ---
@@ -404,4 +464,6 @@ export function setWhoopMetrics(
     fetched_at: new Date().toISOString(),
   };
   writeJSON("hydra.whoop", map);
+  bumpHydraVersion();
+  emitHydraChange({ date: dateNY, reason: "whoop" });
 }

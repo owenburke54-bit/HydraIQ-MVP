@@ -9,6 +9,7 @@ import TopBar from "../components/TopBar";
 import { Analytics } from "@vercel/analytics/react";
 import OnboardingGate from "../components/OnboardingGate";
 import SmartNotifications from "../components/SmartNotifications";
+import HydrationSnapshotProvider from "../components/HydrationSnapshotProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -46,33 +47,35 @@ export default function RootLayout({
       </head>
 
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <RegisterSW />
-        <StartupMigration />
-        <OnboardingGate />
-        <SmartNotifications />
+        <HydrationSnapshotProvider>
+          <RegisterSW />
+          <StartupMigration />
+          <OnboardingGate />
+          <SmartNotifications />
 
-        {/* ✅ useSearchParams() consumers (DateSwitcher) must be inside Suspense */}
-        <Suspense
-          fallback={
-            <header className="fixed left-0 right-0 top-0 z-40 border-b border-zinc-200/50 bg-white/70 dark:border-zinc-800/40 dark:bg-black/30">
-              <div className="mx-auto h-14 max-w-[420px]" />
-            </header>
-          }
-        >
-          <TopBar />
-        </Suspense>
+          {/* ✅ useSearchParams() consumers (DateSwitcher) must be inside Suspense */}
+          <Suspense
+            fallback={
+              <header className="fixed left-0 right-0 top-0 z-40 border-b border-zinc-200/50 bg-white/70 dark:border-zinc-800/40 dark:bg-black/30">
+                <div className="mx-auto h-14 max-w-[420px]" />
+              </header>
+            }
+          >
+            <TopBar />
+          </Suspense>
 
-        {/* Reserve space for the fixed TopBar + iOS safe area so content isn't hidden underneath */}
-        <div className="mx-auto flex min-h-screen max-w-[420px] flex-col text-zinc-900 dark:text-zinc-100">
-          <main className="flex-1 overflow-x-hidden px-4 pb-[88px] pt-[calc(56px+env(safe-area-inset-top))] animate-in">
-            {children}
-          </main>
-        </div>
+          {/* Reserve space for the fixed TopBar + iOS safe area so content isn't hidden underneath */}
+          <div className="mx-auto flex min-h-screen max-w-[420px] flex-col text-zinc-900 dark:text-zinc-100">
+            <main className="flex-1 overflow-x-hidden px-4 pb-[88px] pt-[calc(56px+env(safe-area-inset-top))] animate-in">
+              {children}
+            </main>
+          </div>
 
-        <BottomNav />
+          <BottomNav />
 
-        {/* ✅ Vercel Analytics */}
-        <Analytics />
+          {/* ✅ Vercel Analytics */}
+          <Analytics />
+        </HydrationSnapshotProvider>
       </body>
     </html>
   );
