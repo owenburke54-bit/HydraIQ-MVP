@@ -5,6 +5,7 @@ import Button from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import {
   addWorkout,
+  getWorkoutsByDateNY,
   formatNYDate,
   updateWorkout,
   deleteWorkout,
