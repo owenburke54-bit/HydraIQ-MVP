@@ -233,7 +233,6 @@ export default function WorkoutsPage() {
           <ListEditable
             workouts={workoutsForDay}
             selectedDate={selectedDate}
-            onRefresh={bump}
             onMessage={setMessage}
             onError={setError}
           />
@@ -371,13 +370,11 @@ function WhoopControls({
 function ListEditable({
   workouts,
   selectedDate,
-  onRefresh,
   onMessage,
   onError,
 }: {
   workouts: any[];
   selectedDate: string;
-  onRefresh: () => void;
   onMessage: (m: string | null) => void;
   onError: (e: string | null) => void;
 }) {
@@ -437,7 +434,6 @@ function ListEditable({
                         deleteWorkout(w.id);
                         onMessage("Deleted workout");
                         onError(null);
-                        onRefresh();
                       }
                     }}
                   >
@@ -491,7 +487,6 @@ function ListEditable({
                       setEditing(null);
                       onMessage("Saved workout");
                       onError(null);
-                      onRefresh();
                     }}
                   >
                     Save
