@@ -675,11 +675,12 @@ export default function InsightsPage() {
 		})();
   }, [tab, historyRows.length]);
 
-  // 🔥 Backfill WHOOP cache efficiently when opening History
+  // 🔥 Backfill WHOOP cache efficiently when opening Today/History
+  // Lag Effects lives on Today, so fetch missing sleep_performance there too.
   // Fetch only missing days, with limited concurrency, and a tight window for speed.
   const [whoopBackfillLoading, setWhoopBackfillLoading] = useState(false);
   useEffect(() => {
-    if (tab !== "history") return;
+    if (tab !== "today" && tab !== "history") return;
     let cancelled = false;
 
     (async () => {
