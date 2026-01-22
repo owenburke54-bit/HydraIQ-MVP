@@ -20,14 +20,13 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #05080f;
-    --foreground: #e5e7eb;
-    --card-bg: #0b0f1a;
-    --card-border: rgba(148, 163, 184, 0.18);
-    --ring: rgba(99, 102, 241, 0.35); /* indigo glow */
-  }
+/* Dark theme tokens only when explicitly enabled via .dark */
+:root.dark {
+  --background: #05080f;
+  --foreground: #e5e7eb;
+  --card-bg: #0b0f1a;
+  --card-border: rgba(148, 163, 184, 0.18);
+  --ring: rgba(99, 102, 241, 0.35); /* indigo glow */
 }
 
 body {
@@ -40,15 +39,13 @@ body {
     #f8fafc;
 }
 
-@media (prefers-color-scheme: dark) {
-  body {
-    /* Aurora-style dark gradient */
-    background:
-      radial-gradient(1200px 600px at 50% -220px, rgba(46, 134, 222, 0.22), transparent 60%),
-      radial-gradient(900px 420px at 10% -100px, rgba(124, 58, 237, 0.18), transparent 60%),
-      radial-gradient(700px 360px at 90% -60px, rgba(16, 185, 129, 0.12), transparent 60%),
-      #05080f;
-  }
+.dark body {
+  /* Aurora-style dark gradient */
+  background:
+    radial-gradient(1200px 600px at 50% -220px, rgba(46, 134, 222, 0.22), transparent 60%),
+    radial-gradient(900px 420px at 10% -100px, rgba(124, 58, 237, 0.18), transparent 60%),
+    radial-gradient(700px 360px at 90% -60px, rgba(16, 185, 129, 0.12), transparent 60%),
+    #05080f;
 }
 
 .glass {
@@ -82,16 +79,14 @@ body {
 }
 
 /* Minimal scrollbar polish on iOS dark */
-@media (prefers-color-scheme: dark) {
-  ::-webkit-scrollbar {
-    height: 6px;
-    width: 6px;
-  }
-  ::-webkit-scrollbar-thumb {
-    background-color: rgba(148, 163, 184, 0.35);
-    border-radius: 9999px;
-  }
-  ::-webkit-scrollbar-track {
-    background: transparent;
-  }
+.dark ::-webkit-scrollbar {
+  height: 6px;
+  width: 6px;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background-color: rgba(148, 163, 184, 0.35);
+  border-radius: 9999px;
+}
+.dark ::-webkit-scrollbar-track {
+  background: transparent;
 }
